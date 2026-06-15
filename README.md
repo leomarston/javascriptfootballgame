@@ -101,6 +101,9 @@ every asset generated procedurally in code.
   shots auto‑aim at the corner away from the keeper.
 - **Tackles and slides** win the ball off a carrier (no fouls): a standing tackle
   takes possession, a slide knocks it loose.
+- **Throw-ins**: a ball out over a touchline restarts as a throw-in for the team
+  that didn't touch it last (goal-line restarts are coming next). After a shot
+  the camera follows the **ball** so you can watch the effort.
 - Full arcade **ball physics**: gravity, turf bounce, rolling friction with
   matching spin, aerodynamic drag, reflective walls and **goal‑post collisions**.
 - **Goal‑line detection**, live scoreboard with match clock, goal celebration
@@ -119,7 +122,7 @@ every asset generated procedurally in code.
 | **J** | Shoot — hold for power, auto‑aimed (capped, so own‑half pot‑shots won't carry) |
 | **K** | Cross / lofted ball into the box |
 | **X** | Slide tackle (defending) |
-| **Q** | Switch controlled player |
+| **Q** | Switch player (cycles by nearest to the ball) |
 | **R** | Reset to kickoff |
 | **C** | Cycle camera (Broadcast · Follow · Aerial · Free) |
 | **N** | Toggle day / night |

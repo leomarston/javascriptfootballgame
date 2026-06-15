@@ -65,6 +65,7 @@ export class Gameplay {
     this.keys = new Set();
     this.controlled = 0;
     this.ballOwner = null;
+    this.lastTouchTeam = 'HOME'; // who touched it last (for throw-ins)
     this.kickCooldown = 0;
     this.celebrateT = 0;
     this.passTarget = null;
@@ -74,6 +75,7 @@ export class Gameplay {
     this.passCharge = 0;
     this.shotCharging = false;
     this.shotCharge = 0;
+    this.shotCam = 0; // briefly follow the ball after a shot
     this.presser = {};
     this.cover = {};
     this.support = {};
@@ -134,21 +136,19 @@ export class Gameplay {
     }
   }
 
+  // Cycle through HOME players in order of distance to the ball, so repeated
+  // presses step to the next-closest rather than toggling between two.
   manualSwitch() {
     if (this.celebrateT > 0) return;
-    let best = -1;
-    let bd = Infinity;
-    for (let i = 0; i < this.home.length; i++) {
-      if (i === this.controlled) continue;
-      const d = this.horiz(this.home[i].position, this.ball.position);
-      if (d < bd) { bd = d; best = i; }
-    }
-    if (best >= 0) {
-      this.controlled = best;
-      this.switchLock = 1.0;
-      this.passTarget = null;
-      this.passTimer = 0;
-    }
+    const order = this.home
+      .map((p, i) => i)
+      .sort((a, b) => this.horiz(this.home[a].position, this.ball.position)
+        - this.horiz(this.home[b].position, this.ball.position));
+    const cur = order.indexOf(this.controlled);
+    this.controlled = order[(cur + 1) % order.length];
+    this.switchLock = 1.0;
+    this.passTarget = null;
+    this.passTimer = 0;
   }
 
   controlledPlayer() {
@@ -195,6 +195,7 @@ export class Gameplay {
 
   update(dt) {
     this.kickCooldown = Math.max(0, this.kickCooldown - dt);
+    this.shotCam = Math.max(0, this.shotCam - dt);
     if (this.passTimer > 0) this.passTimer = Math.max(0, this.passTimer - dt);
     if (this.passCharging) this.passCharge = Math.min(1, this.passCharge + dt / 0.6);
     if (this.shotCharging) this.shotCharge = Math.min(1, this.shotCharge + dt / 0.75);
@@ -232,6 +233,7 @@ export class Gameplay {
         : owner && owner.team === keeper.team ? 'own'
           : owner ? 'home' : 'loose';
       const kr = keeper.update(dt, this.ball, mode);
+      if (kr.saved || kr.tookPossession) this.lastTouchTeam = keeper.team;
       if (kr.tookPossession) this.setOwner(keeper);
       if (keeper.holding) this.setOwner(keeper);
       else if (this.ballOwner === keeper) this.setOwner(null);
@@ -246,6 +248,10 @@ export class Gameplay {
       const ev = this.physics.step(this.ball, dt);
       if (ev) {
         this.onGoal(ev.scorer);
+        return;
+      }
+      if (Math.abs(this.ball.position.z) > HW) { // out over a touchline
+        this.throwIn(this.lastTouchTeam);
         return;
       }
       this.resolveLoose();
@@ -465,7 +471,11 @@ export class Gameplay {
     pos.z += vel.z * dt;
     pos.y = r;
     if (this.detectGoal(prevX)) return;
-    if (Math.abs(pos.x) > HL + OUT_MARGIN || Math.abs(pos.z) > HW + OUT_MARGIN) {
+    if (Math.abs(pos.z) > HW) { // dribbled out over a touchline
+      this.throwIn(owner.team);
+      return;
+    }
+    if (Math.abs(pos.x) > HL + OUT_MARGIN) { // over the goal line (corner/goal kick TBD)
       this.loseOut(owner);
       return;
     }
@@ -490,8 +500,36 @@ export class Gameplay {
 
   gainPossession(agent) {
     this.setOwner(agent);
+    this.lastTouchTeam = agent.team;
     this.ball.velocity.multiplyScalar(0.25);
     this.ball.position.y = BALL.RADIUS;
+  }
+
+  // The ball went out over a touchline — restart with a throw-in for the team
+  // that didn't touch it last (placed at the point it crossed the line).
+  throwIn(lastTeam) {
+    const side = this.ball.position.z >= 0 ? 1 : -1;
+    const spotX = THREE.MathUtils.clamp(this.ball.position.x, -HL + 1, HL - 1);
+    const team = lastTeam === 'HOME' ? 'AWAY' : 'HOME';
+    const arr = this.teamArr(team);
+    let thrower = arr[0];
+    let bd = Infinity;
+    for (const p of arr) {
+      const d = Math.hypot(p.position.x - spotX, p.position.z - side * HW);
+      if (d < bd) { bd = d; thrower = p; }
+    }
+    thrower.reset(spotX, side * (HW + 0.3), side > 0 ? Math.PI : 0); // just off the line, facing in
+    this.ball.position.set(spotX, BALL.RADIUS, side * HW);
+    this.ball.velocity.set(0, 0, 0);
+    this.ball.angularVelocity.set(0, 0, 0);
+    this.ball.syncMesh();
+    this.setOwner(thrower);
+    thrower.captureCooldown = 0;
+    this.lastTouchTeam = team;
+    if (team === 'HOME') {
+      this.controlled = this.home.indexOf(thrower);
+      this.switchLock = 1.0;
+    }
   }
 
   bodyCollide(a) {
@@ -511,6 +549,7 @@ export class Gameplay {
       if (vn < 0) {
         this.ball.velocity.x -= 1.4 * vn * nx;
         this.ball.velocity.z -= 1.4 * vn * nz;
+        this.lastTouchTeam = a.team; // a deflection counts as a touch
       }
     }
   }
@@ -540,6 +579,7 @@ export class Gameplay {
 
   releaseBall(kicker, vx, vy, vz) {
     this.ballOwner = null;
+    this.lastTouchTeam = kicker.team;
     this.kickCooldown = KICK_COOLDOWN;
     kicker.captureCooldown = KICK_COOLDOWN;
     this.ball.velocity.set(vx, vy, vz);
@@ -575,6 +615,12 @@ export class Gameplay {
     const dist = Math.hypot(dx, dz) || 1;
     const power = THREE.MathUtils.lerp(13.5, 34.5, charge);
     this.releaseBall(me, (dx / dist) * power, power * 0.12, (dz / dist) * power);
+    this.shotCam = 1.6; // watch the ball, not the shooter
+  }
+
+  // What the camera should follow — the ball just after a shot, else your player.
+  cameraTarget() {
+    return this.shotCam > 0 ? this.ball : this.controlledPlayer();
   }
 
   cross(me) {
@@ -695,6 +741,8 @@ export class Gameplay {
     this.shotCharge = 0;
     this.kickCooldown = 0.3;
     this.celebrateT = 0;
+    this.lastTouchTeam = 'HOME';
+    this.shotCam = 0;
     this.hud.hideGoal();
   }
 

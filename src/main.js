@@ -164,7 +164,7 @@ class App {
     const dt = Math.min(0.05, this.timer.getDelta());
     this.gameplay.update(dt);
     const ctrl = this.gameplay.controlledPlayer();
-    this.rig.update(dt, ctrl);
+    this.rig.update(dt, this.gameplay.cameraTarget()); // follows the ball after a shot
     this.selRing.position.set(ctrl.position.x, 0.04, ctrl.position.z);
     this.hud.setPlayer(TEAMS.HOME.short, ctrl.name, ctrl.label);
     this.stadium.update(dt);
