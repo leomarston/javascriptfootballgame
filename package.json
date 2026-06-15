@@ -1,0 +1,33 @@
+{
+  "name": "javascriptfootballgame",
+  "version": "1.0.0",
+  "description": "An eFootball-style football game built in JavaScript with Three.js, based on the Astra Arena 3D stadium model.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leomarston/javascriptfootballgame"
+  },
+  "keywords": [
+    "threejs",
+    "football",
+    "soccer",
+    "stadium",
+    "3d",
+    "game",
+    "webgl"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "three": "^0.184.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.56.1",
+    "vite": "^5.4.21"
+  }
+}
