@@ -98,8 +98,10 @@ every asset generated procedurally in code.
   input doesn't just miss — but it switches off the moment you steer elsewhere.
 - Separate **pass**, **shoot** and **cross** actions: a pass finds the teammate
   who's nearest **in the direction you're facing**, the cross floats a lofted
-  ball into the **penalty area** (onto a teammate's run when one is there), and
-  shots auto‑aim at the corner away from the keeper.
+  ball into the **penalty area** (onto a teammate's run when one is there), and a
+  **shot goes where you're facing** — with only a small goal‑assist that fades
+  with range, so the further out you shoot the more it sprays and the lower your
+  chance of hitting the target.
 - The camera **always keeps the ball in frame** (leaning toward your player),
   and swings onto the ball after a shot.
 - **Tackles and slides** win the ball off a carrier (no fouls): a standing tackle

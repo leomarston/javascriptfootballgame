@@ -477,8 +477,14 @@ export class Gameplay {
     const dx = goalX - this.ball.position.x;
     const dz = aimZ - this.ball.position.z;
     const dist = Math.hypot(dx, dz) || 1;
+    let ax = dx / dist;
+    let az = dz / dist;
+    const spread = THREE.MathUtils.lerp(0.02, 0.2, THREE.MathUtils.clamp((dist - 8) / 20, 0, 1));
+    const e = (Math.random() * 2 - 1) * spread;
+    const ce = Math.cos(e);
+    const se = Math.sin(e);
     const power = 30;
-    this.releaseBall(a, (dx / dist) * power, power * 0.12, (dz / dist) * power);
+    this.releaseBall(a, (ax * ce - az * se) * power, power * 0.12, (ax * se + az * ce) * power);
   }
 
   aiPass(a, mate) {
@@ -671,13 +677,30 @@ export class Gameplay {
     this.handOverTo(mate);
   }
 
+  // Goes where the PLAYER faces — only a small goal-assist that fades with
+  // distance — and the further out the more it can spray, so long-range shots
+  // only go in if you're aimed well (and a little lucky).
   shoot(me, charge = 1) {
-    const aimZ = this.awayKeeper.position.z >= 0 ? -2.4 : 2.4;
-    const dx = HOME_ATTACK_X - this.ball.position.x;
-    const dz = aimZ - this.ball.position.z;
+    const bx = this.ball.position.x;
+    const bz = this.ball.position.z;
+    const dx = HOME_ATTACK_X - bx;
+    const dz = 0 - bz;
     const dist = Math.hypot(dx, dz) || 1;
+    const near = THREE.MathUtils.clamp((dist - 6) / 26, 0, 1); // 0 close, 1 far
+    const assist = THREE.MathUtils.lerp(0.5, 0.05, near); // less help the further out
+    const fx = Math.sin(me.heading);
+    const fz = Math.cos(me.heading);
+    let ax = fx * (1 - assist) + (dx / dist) * assist;
+    let az = fz * (1 - assist) + (dz / dist) * assist;
+    const al = Math.hypot(ax, az);
+    if (al < 0.05) { ax = fx; az = fz; } // facing dead away from goal: go where you face
+    else { ax /= al; az /= al; }
+    const spread = THREE.MathUtils.lerp(0.03, 0.5, near); // distance-based spray
+    const e = (Math.random() * 2 - 1) * spread;
+    const ce = Math.cos(e);
+    const se = Math.sin(e);
     const power = THREE.MathUtils.lerp(13.5, 34.5, charge);
-    this.releaseBall(me, (dx / dist) * power, power * 0.12, (dz / dist) * power);
+    this.releaseBall(me, (ax * ce - az * se) * power, power * 0.12, (ax * se + az * ce) * power);
     this.shotCam = 1.6; // watch the ball, not the shooter
   }
 
