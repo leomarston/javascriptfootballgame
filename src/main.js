@@ -14,6 +14,7 @@ import { PostFX } from './core/PostFX.js';
 import { Stadium } from './stadium/Stadium.js';
 import { Ball } from './game/Ball.js';
 import { Player } from './game/Player.js';
+import { Goalkeeper } from './game/Goalkeeper.js';
 import { CameraRig } from './game/CameraRig.js';
 import { Gameplay } from './game/Gameplay.js';
 import { HUD } from './ui/HUD.js';
@@ -84,10 +85,14 @@ class App {
     this.player.reset(-2.2, 0);
     this.scene.add(this.player.object);
 
+    this.keeper = new Goalkeeper();
+    this.scene.add(this.keeper.object);
+
     this.rig = new CameraRig(this.renderer.domElement, innerWidth / innerHeight);
     this.postfx = new PostFX(this.renderer, this.scene, this.rig.camera);
     this.gameplay = new Gameplay(
       this.player,
+      this.keeper,
       this.ball,
       this.rig,
       this.renderer.domElement,

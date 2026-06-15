@@ -20,14 +20,19 @@ import { TEAMS } from '../../config.js';
 // Pelvis height (m) — tuned so the boots rest on the pitch (y ≈ 0).
 const HIP_Y = 1.0;
 
-const KIT = {
-  skin: new THREE.Color(0xe8b48c),
-  shirt: new THREE.Color(TEAMS.HOME.primary),
-  shorts: new THREE.Color(0xf2f3f5),
-  socks: new THREE.Color(TEAMS.HOME.primary),
-  boot: new THREE.Color(0x15151a),
-  hair: new THREE.Color(0x241812)
+// Default outfield kit (home / red). A keeper passes its own overrides.
+const DEFAULT_KIT = {
+  skin: 0xe8b48c,
+  shirt: TEAMS.HOME.primary,
+  shorts: 0xf2f3f5,
+  socks: TEAMS.HOME.primary,
+  boot: 0x15151a,
+  hair: 0x241812,
+  glove: null, // gloves recolour + enlarge the hands when set
+  longSleeves: false // forearms take the shirt colour when true
 };
+
+const col = (c) => new THREE.Color(c);
 
 // Skeleton definition: [name, parent, x, y, z] — positions are local offsets
 // from the parent bone, in metres, in the model's rest (bind) pose. The model
@@ -84,43 +89,53 @@ function boxAt(w, h, d, x, y, z) {
 }
 
 // Each visible body part: [boneName, geometry, colour].
-function bodyParts() {
+function bodyParts(kit) {
+  const skin = col(kit.skin);
+  const shirt = col(kit.shirt);
+  const shorts = col(kit.shorts);
+  const socks = col(kit.socks);
+  const boot = col(kit.boot);
+  const hair = col(kit.hair);
+  const forearm = kit.longSleeves ? shirt : skin; // long sleeves cover the forearm
+  const hand = kit.glove != null ? col(kit.glove) : skin;
+  const handR = kit.glove != null ? 0.07 : 0.06; // gloves are a touch bigger
+
   return [
     // torso
-    ['hips', boxAt(0.3, 0.2, 0.21, 0, -0.02, 0), KIT.shorts],
-    ['spine', boxAt(0.31, 0.22, 0.21, 0, 0.09, 0), KIT.shirt],
-    ['chest', boxAt(0.37, 0.25, 0.22, 0, 0.1, 0), KIT.shirt],
-    ['neck', limbUp(0.1, 0.05), KIT.skin],
-    ['head', sphere(0.125, 0.05, 0.01), KIT.skin],
-    ['head', boxAt(0.27, 0.12, 0.26, 0, 0.12, -0.02), KIT.hair], // hair cap
+    ['hips', boxAt(0.3, 0.2, 0.21, 0, -0.02, 0), shorts],
+    ['spine', boxAt(0.31, 0.22, 0.21, 0, 0.09, 0), shirt],
+    ['chest', boxAt(0.37, 0.25, 0.22, 0, 0.1, 0), shirt],
+    ['neck', limbUp(0.1, 0.05), skin],
+    ['head', sphere(0.125, 0.05, 0.01), skin],
+    ['head', boxAt(0.27, 0.12, 0.26, 0, 0.12, -0.02), hair], // hair cap
 
     // left arm
-    ['upperArmL', sphere(0.075), KIT.shirt], // shoulder/deltoid
-    ['upperArmL', limbDown(0.27, 0.055), KIT.shirt], // short sleeve
-    ['lowerArmL', sphere(0.05), KIT.skin], // elbow
-    ['lowerArmL', limbDown(0.25, 0.046), KIT.skin], // forearm
-    ['handL', sphere(0.06, -0.05, 0.005), KIT.skin],
+    ['upperArmL', sphere(0.075), shirt], // shoulder/deltoid
+    ['upperArmL', limbDown(0.27, 0.055), shirt], // sleeve
+    ['lowerArmL', sphere(0.05), forearm], // elbow
+    ['lowerArmL', limbDown(0.25, 0.046), forearm], // forearm
+    ['handL', sphere(handR, -0.05, 0.005), hand],
 
     // right arm
-    ['upperArmR', sphere(0.075), KIT.shirt],
-    ['upperArmR', limbDown(0.27, 0.055), KIT.shirt],
-    ['lowerArmR', sphere(0.05), KIT.skin],
-    ['lowerArmR', limbDown(0.25, 0.046), KIT.skin],
-    ['handR', sphere(0.06, -0.05, 0.005), KIT.skin],
+    ['upperArmR', sphere(0.075), shirt],
+    ['upperArmR', limbDown(0.27, 0.055), shirt],
+    ['lowerArmR', sphere(0.05), forearm],
+    ['lowerArmR', limbDown(0.25, 0.046), forearm],
+    ['handR', sphere(handR, -0.05, 0.005), hand],
 
     // left leg
-    ['thighL', sphere(0.088), KIT.shorts], // hip
-    ['thighL', limbDown(0.44, 0.085), KIT.shorts],
-    ['shinL', sphere(0.07), KIT.socks], // knee
-    ['shinL', limbDown(0.42, 0.063), KIT.socks],
-    ['footL', boxAt(0.11, 0.08, 0.26, 0, -0.025, 0.06), KIT.boot],
+    ['thighL', sphere(0.088), shorts], // hip
+    ['thighL', limbDown(0.44, 0.085), shorts],
+    ['shinL', sphere(0.07), socks], // knee
+    ['shinL', limbDown(0.42, 0.063), socks],
+    ['footL', boxAt(0.11, 0.08, 0.26, 0, -0.025, 0.06), boot],
 
     // right leg
-    ['thighR', sphere(0.088), KIT.shorts],
-    ['thighR', limbDown(0.44, 0.085), KIT.shorts],
-    ['shinR', sphere(0.07), KIT.socks],
-    ['shinR', limbDown(0.42, 0.063), KIT.socks],
-    ['footR', boxAt(0.11, 0.08, 0.26, 0, -0.025, 0.06), KIT.boot]
+    ['thighR', sphere(0.088), shorts],
+    ['thighR', limbDown(0.44, 0.085), shorts],
+    ['shinR', sphere(0.07), socks],
+    ['shinR', limbDown(0.42, 0.063), socks],
+    ['footR', boxAt(0.11, 0.08, 0.26, 0, -0.025, 0.06), boot]
   ];
 }
 
@@ -141,7 +156,9 @@ function paintAndSkin(geo, color, boneIdx) {
   geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(sw, 4));
 }
 
-export function buildPlayerRig() {
+export function buildPlayerRig(options = {}) {
+  const kit = { ...DEFAULT_KIT, ...(options.kit || {}) };
+
   // ---- build the bone hierarchy ----
   const bones = {};
   const order = [];
@@ -160,7 +177,7 @@ export function buildPlayerRig() {
 
   // ---- bake each part into the mesh (bind) space ----
   const parts = [];
-  for (const [boneName, geo, color] of bodyParts()) {
+  for (const [boneName, geo, color] of bodyParts(kit)) {
     paintAndSkin(geo, color, boneIndex.get(boneName));
     geo.applyMatrix4(bones[boneName].matrixWorld); // bone-local -> bind space
     parts.push(geo);

@@ -32,8 +32,9 @@ const PLAYER_RADIUS = 0.3; // body radius for loose-ball collisions
 const OUT_MARGIN = 0.25; // grace beyond the lines before it's "out"
 
 export class Gameplay {
-  constructor(player, ball, cameraRig, dom, hud) {
+  constructor(player, keeper, ball, cameraRig, dom, hud) {
     this.player = player;
+    this.keeper = keeper;
     this.ball = ball;
     this.rig = cameraRig;
     this.dom = dom;
@@ -138,12 +139,19 @@ export class Gameplay {
 
     if (this.celebrateT > 0) {
       this.celebrateT -= dt;
+      this.keeper.update(dt, this.ball, this.player, false);
       this.physics.step(this.ball, dt); // let the ball roll dead in the net
       if (this.celebrateT <= 0) this.kickoff();
       return;
     }
 
-    if (this.owned) {
+    // goalkeeper AI + interactions (may save, smother or hold the ball)
+    const kr = this.keeper.update(dt, this.ball, this.player, this.owned);
+    if (kr.tookPossession) this.owned = false;
+
+    if (this.keeper.holding) {
+      this.owned = false; // the ball is in the keeper's gloves
+    } else if (this.owned) {
       this.dribble(dt);
     } else {
       const event = this.physics.step(this.ball, dt);
@@ -299,6 +307,7 @@ export class Gameplay {
     this.ball.reset(0, 0);
     this.player.reset(-2.2, 0);
     this.player.heading = Math.PI / 2; // face the pitch (+X)
+    this.keeper.reset();
     this.owned = false;
     this.kickCooldown = 0.3;
     this.spaceCharging = false;

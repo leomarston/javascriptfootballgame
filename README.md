@@ -58,6 +58,18 @@ every asset generated procedurally in code.
 - Built as a portable **glTF asset** (`src/assets/player.glb`) — the same skin +
   clips you could open in Blender or Unity (see *Baking the player*).
 
+### The goalkeeper (smart AI)
+- A keeper for the away side on the same rig (teal kit + gloves) with its own
+  **authored clips**: a low **ready stance**, a square **shuffle**, explosive
+  **dives** (both sides) and a vertical **jump** — get‑ups come free from the
+  mixer blending the clamped dive pose back to the stance.
+- **Reads the game**: holds its line and shuffles to stay on the ball→goal
+  angle, comes off the line to narrow the angle, **predicts a shot's crossing
+  point** and only reacts when it's on target — diving the correct way for
+  corners, jumping for high central balls, and **ignoring balls going wide**.
+- **Catches** soft shots (then punts upfield), **parries** hard ones, blocks
+  shots hit at its body, and in a 1‑v‑1 **smothers** the ball off the dribbler.
+
 ### Gameplay
 - **Close‑control dribbling**: run near a loose ball to **trap** it, then it
   stays glued just ahead of the boots through turns and sprints. You only lose
@@ -136,9 +148,11 @@ src/
 │  ├─ Gameplay.js          # input, player control, scoring, kickoff
 │  ├─ CameraRig.js         # broadcast / follow / aerial / orbit
 │  ├─ Player.js            # loads player.glb, locomotion + clip blending
+│  ├─ Goalkeeper.js        # keeper rig + smart AI (position / dive / save)
 │  └─ player/
-│     ├─ PlayerRig.js          # skeleton + skinned mesh (the model)
-│     └─ PlayerAnimations.js   # authored idle / walk / run clips
+│     ├─ PlayerRig.js              # skeleton + skinned mesh (kit-configurable)
+│     ├─ PlayerAnimations.js       # authored idle / walk / run clips
+│     └─ GoalkeeperAnimations.js   # authored stance / shuffle / dive / jump
 ├─ assets/player.glb       # baked rig + clips (glTF art asset)
 ├─ ui/HUD.js               # scoreboard, goal banner, loader
 └─ utils/                  # geometry + async helpers
