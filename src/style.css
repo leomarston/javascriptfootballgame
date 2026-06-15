@@ -38,11 +38,6 @@ body {
   z-index: 10;
 }
 
-.hud button,
-.hud .help {
-  pointer-events: auto;
-}
-
 /* ---------- scoreboard ---------- */
 .scoreboard {
   position: absolute;
@@ -104,83 +99,6 @@ body {
   background: rgba(0, 0, 0, 0.4);
 }
 
-/* ---------- tools ---------- */
-.tools {
-  position: absolute;
-  top: 18px;
-  right: 18px;
-  display: flex;
-  gap: 8px;
-}
-
-.btn {
-  font: 600 13px/1 'Segoe UI', sans-serif;
-  color: var(--txt);
-  background: var(--panel);
-  border: 1px solid var(--panel-brd);
-  border-radius: 9px;
-  padding: 9px 12px;
-  cursor: pointer;
-  backdrop-filter: blur(10px);
-  transition: background 0.15s, transform 0.1s;
-}
-
-.btn:hover {
-  background: rgba(40, 50, 66, 0.8);
-}
-
-.btn:active {
-  transform: scale(0.96);
-}
-
-/* ---------- power + speed ---------- */
-.power {
-  position: absolute;
-  left: 18px;
-  bottom: 18px;
-  width: 210px;
-  background: var(--panel);
-  border: 1px solid var(--panel-brd);
-  border-radius: 10px;
-  padding: 10px 12px;
-  backdrop-filter: blur(10px);
-}
-
-.power-label {
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  opacity: 0.7;
-  margin-bottom: 6px;
-}
-
-.power-bar {
-  height: 10px;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  overflow: hidden;
-}
-
-.power-fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #36d399, #ffd23f, #ff5b5b);
-  transition: width 0.04s linear;
-}
-
-.speed {
-  position: absolute;
-  right: 18px;
-  bottom: 18px;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  background: var(--panel);
-  border: 1px solid var(--panel-brd);
-  border-radius: 9px;
-  padding: 9px 12px;
-  backdrop-filter: blur(10px);
-}
-
 /* ---------- goal banner ---------- */
 .goal-banner {
   position: absolute;
@@ -215,52 +133,6 @@ body {
     transform: translate(-50%, -50%) scale(1) rotate(0);
     opacity: 1;
   }
-}
-
-/* ---------- help ---------- */
-.help {
-  position: absolute;
-  left: 18px;
-  top: 18px;
-  width: 320px;
-  background: var(--panel);
-  border: 1px solid var(--panel-brd);
-  border-radius: 12px;
-  padding: 16px 18px;
-  backdrop-filter: blur(12px);
-  font-size: 13px;
-  line-height: 1.55;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
-}
-
-.help.hidden {
-  display: none;
-}
-
-.help h3 {
-  font-size: 15px;
-  margin-bottom: 10px;
-  color: var(--accent);
-  letter-spacing: 0.04em;
-}
-
-.help ul {
-  list-style: none;
-  margin-bottom: 8px;
-}
-
-.help li {
-  margin: 5px 0;
-  opacity: 0.92;
-}
-
-.help b {
-  color: #fff;
-}
-
-.help p {
-  opacity: 0.7;
-  font-style: italic;
 }
 
 /* ---------- loader ---------- */

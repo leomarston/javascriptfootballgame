@@ -54,7 +54,6 @@ export class Gameplay {
       if (!this.charging || e.button !== 0) return;
       this.charging = false;
       this.shoot();
-      this.hud.setPower(0);
     });
   }
 
@@ -111,7 +110,6 @@ export class Gameplay {
   update(dt) {
     if (this.charging) {
       this.charge = Math.min(1, this.charge + dt * 0.9);
-      this.hud.setPower(this.charge);
     }
     if (this.celebrateT > 0) {
       this.celebrateT -= dt;
@@ -122,8 +120,6 @@ export class Gameplay {
 
     const event = this.physics.step(this.ball, dt);
     if (event && this.celebrateT <= 0) this.onGoal(event.scorer);
-
-    this.hud.setSpeed(this.ball.velocity.length());
   }
 
   onGoal(scorer) {

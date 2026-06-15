@@ -37,7 +37,7 @@ class App {
 
     this.scene = new THREE.Scene();
     this.timer = new THREE.Timer();
-    this.isNight = false;
+    this.isNight = true;
 
     // Some software/headless GL stacks (SwiftShader, llvmpipe) can't run the
     // HDR bloom pass and render black; detect that and degrade gracefully.
@@ -81,6 +81,7 @@ class App {
     this.gameplay = new Gameplay(this.ball, this.rig, this.renderer.domElement, this.hud);
 
     this.wireControls();
+    this.applyNight(); // night is the default look
     addEventListener('resize', () => this.onResize());
 
     this.hud.setLoading(1, 'Kickoff!');
@@ -90,18 +91,19 @@ class App {
     this.renderer.setAnimationLoop(() => this.frame());
   }
 
+  applyNight() {
+    this.environment.applyMode(this.isNight ? 'night' : 'day');
+    this.stadium.setNight(this.isNight);
+    this.postfx.setNight(this.isNight);
+  }
+
   wireControls() {
     const toggleNight = () => {
       this.isNight = !this.isNight;
-      this.environment.applyMode(this.isNight ? 'night' : 'day');
-      this.stadium.setNight(this.isNight);
-      this.postfx.setNight(this.isNight);
-      this.hud.setNightLabel(this.isNight);
+      this.applyNight();
     };
-    const cycleCam = () => this.hud.setCameraLabel(this.rig.cycle());
+    const cycleCam = () => this.rig.cycle();
 
-    this.hud.on('night', toggleNight);
-    this.hud.on('cam', cycleCam);
     addEventListener('keydown', (e) => {
       const k = e.key.toLowerCase();
       if (k === 'n') toggleNight();
