@@ -29,5 +29,5 @@ exporter.parse(
   (error) => {
     window.__GLB_ERROR = String(error && error.message ? error.message : error);
   },
-  { binary: true, animations: [clips.idle, clips.walk, clips.run] }
+  { binary: true, animations: Object.values(clips) }
 );

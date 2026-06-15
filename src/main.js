@@ -8,12 +8,12 @@
 
 import * as THREE from 'three';
 import './style.css';
-import { QUALITY } from './config.js';
+import { QUALITY, TEAMS } from './config.js';
 import { Environment } from './core/Environment.js';
 import { PostFX } from './core/PostFX.js';
 import { Stadium } from './stadium/Stadium.js';
 import { Ball } from './game/Ball.js';
-import { Player } from './game/Player.js';
+import { FieldPlayer } from './game/FieldPlayer.js';
 import { Goalkeeper } from './game/Goalkeeper.js';
 import { CameraRig } from './game/CameraRig.js';
 import { Gameplay } from './game/Gameplay.js';
@@ -78,21 +78,26 @@ class App {
     this.ball = new Ball();
     this.scene.add(this.ball.object);
 
-    this.hud.setLoading(0.97, 'Lacing the boots');
-    this.player = new Player();
-    this.player.heading = Math.PI / 2; // face the pitch (+X)
-    await this.player.load();
-    this.player.reset(-2.2, 0);
-    this.scene.add(this.player.object);
-
+    this.hud.setLoading(0.97, 'Lining up the teams');
+    // HOME: two red outfielders (you control one). AWAY: a blue defender + keeper.
+    this.home = [
+      new FieldPlayer({ team: 'HOME', role: 'striker' }),
+      new FieldPlayer({ team: 'HOME', role: 'support' })
+    ];
+    this.defender = new FieldPlayer({
+      team: 'AWAY',
+      role: 'defender',
+      kit: { shirt: TEAMS.AWAY.primary, socks: TEAMS.AWAY.primary, shorts: 0x0b1f3a }
+    });
     this.keeper = new Goalkeeper();
+    for (const p of this.home) this.scene.add(p.object);
+    this.scene.add(this.defender.object);
     this.scene.add(this.keeper.object);
 
     this.rig = new CameraRig(this.renderer.domElement, innerWidth / innerHeight);
     this.postfx = new PostFX(this.renderer, this.scene, this.rig.camera);
     this.gameplay = new Gameplay(
-      this.player,
-      this.keeper,
+      { home: this.home, defender: this.defender, keeper: this.keeper },
       this.ball,
       this.rig,
       this.renderer.domElement,
@@ -140,7 +145,7 @@ class App {
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
     this.gameplay.update(dt);
-    this.rig.update(dt, this.player);
+    this.rig.update(dt, this.gameplay.controlledPlayer());
     this.stadium.update(dt);
     this.hud.update(dt);
     this.postfx.render(this.rig.camera);

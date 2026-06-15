@@ -47,16 +47,27 @@ every asset generated procedurally in code.
 - **Day / Night** mode with a gradient night dome, stars and a floodlit pitch.
 - Automatic graceful degradation on software/headless GL.
 
-### The player (rigged & animated)
+### The players (rigged & animated)
 - A **fully rigged, skinned humanoid** — 19 bones covering pelvis, spine, chest,
   neck, head, both clavicles, upper/lower arms, hands, thighs, shins and feet.
-- **Hand‑authored animation clips** — `idle`, `walk` and `run` keyed as real
-  locomotion cycles (contact · passing · toe‑off · swing) and played back by an
+- **Hand‑authored animation clips** — `idle`, `walk`, `run`, plus a standing
+  **tackle** and a **slide** — keyed as real poses and played by an
   `AnimationMixer`. The motion is designed art, not per‑frame procedural code.
-- **Speed‑driven blending**: the player eases from idle → walk → run, cross‑fades
+- **Speed‑driven blending**: a player eases from idle → walk → run, cross‑fades
   the clips and stride‑syncs playback to ground speed, and turns to face the run.
-- Built as a portable **glTF asset** (`src/assets/player.glb`) — the same skin +
-  clips you could open in Blender or Unity (see *Baking the player*).
+- One **kit‑configurable rig** (`FieldPlayer`) powers every outfielder — your two
+  red HOME players and the blue AWAY defender. The same rig + clips are exported
+  to a portable **glTF asset** (`src/assets/player.glb`) you can open in Blender
+  or Unity (see *Baking the player*).
+
+### Teams, control & AI
+- **HOME** fields two outfielders (you control one at a time) attacking the +X
+  goal; **AWAY** fields a defender and a keeper.
+- **Auto‑switching control**: you drive the HOME ball carrier; a pass switches you
+  to the receiver; when AWAY has the ball you take over the HOME player nearest it.
+- **Teammate AI** makes supporting runs, finds space and breaks into the box.
+- **Defender AI** jockeys goal‑side of the carrier, closes down, and times
+  standing tackles or slides to win the ball, then clears upfield.
 
 ### The goalkeeper (smart AI)
 - A keeper for the away side on the same rig (teal kit + gloves) with its own
@@ -72,9 +83,12 @@ every asset generated procedurally in code.
 
 ### Gameplay
 - **Close‑control dribbling**: run near a loose ball to **trap** it, then it
-  stays glued just ahead of the boots through turns and sprints. You only lose
-  it by **kicking on purpose** (pass / charged shot / cross / aimed shot), by
-  taking it **out of play**, or — once opponents exist — by being **tackled**.
+  stays glued just ahead of the boots through turns and sprints.
+- Separate **pass**, **shoot** and **cross** actions: the cross floats a lofted
+  ball into the **penalty area** (onto a teammate's run when one is there), and
+  shots auto‑aim at the corner away from the keeper.
+- **Tackles and slides** win the ball off a carrier (no fouls): a standing tackle
+  takes possession, a slide knocks it loose.
 - Full arcade **ball physics**: gravity, turf bounce, rolling friction with
   matching spin, aerodynamic drag, reflective walls and **goal‑post collisions**.
 - **Goal‑line detection**, live scoreboard with match clock, goal celebration
@@ -87,11 +101,12 @@ every asset generated procedurally in code.
 
 | Input | Action |
 | --- | --- |
-| **W A S D / Arrows** | Move the player (camera‑relative) |
-| **Shift** | Sprint (run) |
-| **Space** | Pass — hold to drive it harder |
-| **F** | Cross / lofted ball |
-| **Hold + release Left Mouse** | Aimed shot toward the cursor (charged) |
+| **W A S D / Arrows** | Move (camera‑relative) |
+| **Shift** | Sprint |
+| **Space** | With the ball: **pass**. Defending: **tackle** |
+| **J** | Shoot (auto‑aimed at goal) |
+| **K** | Cross / lofted ball into the box |
+| **X** | Slide tackle (defending) |
 | **R** | Reset to kickoff |
 | **C** | Cycle camera (Broadcast · Follow · Aerial · Free) |
 | **N** | Toggle day / night |
@@ -145,20 +160,22 @@ src/
 ├─ game/
 │  ├─ Ball.js              # ball mesh + classic panel texture
 │  ├─ Physics.js           # bounce / roll / drag / collisions / goals
-│  ├─ Gameplay.js          # input, player control, scoring, kickoff
+│  ├─ Gameplay.js          # match engine: control, possession, actions, AI
 │  ├─ CameraRig.js         # broadcast / follow / aerial / orbit
-│  ├─ Player.js            # loads player.glb, locomotion + clip blending
+│  ├─ FieldPlayer.js       # kit-configurable outfielder (loco + tackle/slide)
 │  ├─ Goalkeeper.js        # keeper rig + smart AI (position / dive / save)
 │  └─ player/
 │     ├─ PlayerRig.js              # skeleton + skinned mesh (kit-configurable)
-│     ├─ PlayerAnimations.js       # authored idle / walk / run clips
+│     ├─ PlayerAnimations.js       # authored idle / walk / run / tackle / slide
 │     └─ GoalkeeperAnimations.js   # authored stance / shuffle / dive / jump
-├─ assets/player.glb       # baked rig + clips (glTF art asset)
+├─ assets/player.glb       # exported rig + clips (glTF art asset)
 ├─ ui/HUD.js               # scoreboard, goal banner, loader
 └─ utils/                  # geometry + async helpers
 ```
 
-`tools/screenshot.mjs` captures showcase renders headlessly.
+Outfielders are built at runtime from `FieldPlayer` (so each team gets its own
+kit and the full clip set); `player.glb` is the same rig exported as a portable
+artifact. `tools/screenshot.mjs` captures showcase renders headlessly.
 
 ### Baking the player
 
@@ -170,8 +187,9 @@ npm run dev                 # serve the bake page (in one shell)
 npm run bake:player         # export src/assets/player.glb (in another)
 ```
 
-The exporter writes a standard glTF skin with the `idle` / `walk` / `run`
-clips, so the character drops straight into Blender, Unity or any glTF viewer.
+The exporter writes a standard glTF skin with the `idle` / `walk` / `run` /
+`tackle` / `slide` clips, so the character drops straight into Blender, Unity
+or any glTF viewer.
 
 ---
 

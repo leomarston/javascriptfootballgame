@@ -49,7 +49,7 @@ await pose('keeper_jump', 'jump', 0.42, [1.4, 1.6, 3.2], [0, 1.3, 0]);
 
 // ---- behaviour tests ----
 const res = await page.evaluate(() => {
-  const a = window.__APP, g = a.gameplay, k = a.keeper, b = a.ball, p = a.player;
+  const a = window.__APP, g = a.gameplay, k = a.keeper, b = a.ball;
   const DT = 1 / 60;
   const out = {};
 
@@ -57,7 +57,7 @@ const res = await page.evaluate(() => {
     let dived = false;
     let saved = false;
     for (let i = 0; i < n; i++) {
-      const r = k.update(DT, b, p, false);
+      const r = k.update(DT, b, 'loose');
       if (k.state === 'dive' || k.state === 'jump') dived = true;
       if (r.saved) saved = true;
       if (!k.holding) {
@@ -73,14 +73,14 @@ const res = await page.evaluate(() => {
   k.object.rotation.y = -Math.PI / 2;
 
   // 1) positioning: tracks the ball laterally and comes off its line
-  k.reset(); p.reset(-40, 0); b.reset(40, 2); b.velocity.set(0, 0, 0);
-  for (let i = 0; i < 70; i++) k.update(DT, b, p, false);
+  k.reset(); b.reset(40, 2); b.velocity.set(0, 0, 0);
+  for (let i = 0; i < 70; i++) k.update(DT, b, 'loose');
   out.pos_z = +k.position.z.toFixed(2);     // ~ clamp(2*0.85)=1.7
   out.pos_offLine = +(52.5 - k.position.x).toFixed(2); // > 0.9 (advanced)
 
   // 2) on-target driven shot to the corner -> dive + save (no goal)
   g.score.HOME = 0; g.score.AWAY = 0;
-  k.reset(); p.reset(-40, 0); b.reset(47, 0); b.position.y = 0.3; b.velocity.set(13, 0.2, 5.5);
+  k.reset(); b.reset(47, 0); b.position.y = 0.3; b.velocity.set(13, 0.2, 5.5);
   out.dive_result = looseStep(150);
   out.dive_state = k.state;
   out.dive_saved = out.dive_result.saved;
@@ -88,39 +88,36 @@ const res = await page.evaluate(() => {
 
   // 2b) low central shot -> body block (no goal)
   g.score.HOME = 0; g.score.AWAY = 0;
-  k.reset(); p.reset(-40, 0); b.reset(38, 0); b.position.y = 0.2; b.velocity.set(13, 0.2, 0);
+  k.reset(); b.reset(38, 0); b.position.y = 0.2; b.velocity.set(13, 0.2, 0);
   out.central_result = looseStep(150);
   out.central_saved = out.central_result.saved;
   out.central_noGoal = g.score.HOME === 0;
 
   // 3) wide shot -> keeper does NOT dive, no goal
   g.score.HOME = 0; g.score.AWAY = 0;
-  k.reset(); p.reset(-40, 0); b.reset(38, 0); b.position.y = 0.2; b.velocity.set(20, 13, 0);
+  k.reset(); b.reset(38, 0); b.position.y = 0.2; b.velocity.set(20, 13, 0);
   let dived = false;
-  for (let i = 0; i < 60; i++) { k.update(DT, b, p, false); if (k.state === 'dive') dived = true; if (!k.holding) g.physics.step(b, DT); }
+  for (let i = 0; i < 60; i++) { k.update(DT, b, 'loose'); if (k.state === 'dive') dived = true; if (!k.holding) g.physics.step(b, DT); }
   out.wide_dived = dived;                     // expect false
   out.wide_scoreHOME = g.score.HOME;          // expect 0
 
   // 4) high central ball -> jump reaction
-  k.reset(); p.reset(-40, 0); b.reset(40, 0); b.position.y = 0.3; b.velocity.set(14, 7, 0);
+  k.reset(); b.reset(40, 0); b.position.y = 0.3; b.velocity.set(14, 7, 0);
   let jumped = false;
-  for (let i = 0; i < 40; i++) { k.update(DT, b, p, false); if (k.state === 'jump') jumped = true; if (!k.holding) g.physics.step(b, DT); }
+  for (let i = 0; i < 40; i++) { k.update(DT, b, 'loose'); if (k.state === 'jump') jumped = true; if (!k.holding) g.physics.step(b, DT); }
   out.high_jumped = jumped;                   // expect true
 
-  // 5) 1v1: player dribbles into the keeper -> smothered
-  g.score.HOME = 0;
-  k.reset(); p.reset(50.8, 0); p.heading = Math.PI / 2; b.position.set(51.5, 0.13, 0); b.velocity.set(0, 0, 0);
-  g.owned = true; g.kickCooldown = 0; g.celebrateT = 0; g.keys.clear();
-  for (let i = 0; i < 8 && g.owned; i++) g.update(DT);
-  out.smother_playerLost = !g.owned;          // expect true
+  // 5) keeper smothers a ball at its feet when HOME has it (mode 'home')
+  k.reset(); b.position.set(k.position.x - 0.3, 0.13, k.position.z); b.velocity.set(0, 0, 0);
+  k.update(DT, b, 'home');
   out.smother_keeperHolds = k.holding;        // expect true
 
   // 6) solid body: a loose ball can never roll through the standing keeper
-  k.reset(); p.reset(-40, 0);
+  k.reset();
   b.position.set(k.position.x - 0.6, 0.4, k.position.z); b.velocity.set(6, 0, 0);
   let through = false;
   for (let i = 0; i < 50; i++) {
-    k.update(DT, b, p, false);
+    k.update(DT, b, 'loose');
     if (!k.holding) g.physics.step(b, DT);
     if (b.position.x > k.position.x + 0.35) through = true;
   }

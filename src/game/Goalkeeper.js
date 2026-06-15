@@ -92,7 +92,8 @@ export class Goalkeeper {
 
   // --- main update --------------------------------------------------------
 
-  update(dt, ball, player, playerOwns) {
+  // mode: 'loose' (react + save), 'home' (smother a dribbler), 'own' (just hold)
+  update(dt, ball, mode = 'loose') {
     this.stateT += dt;
     this.reactCooldown = Math.max(0, this.reactCooldown - dt);
     const result = { tookPossession: false, saved: false };
@@ -122,16 +123,16 @@ export class Goalkeeper {
         this._toSet();
       }
     } else if (this.state === 'set') {
-      if (playerOwns) {
+      if (mode === 'home') {
         if (this._ballWithin(ball, 0.78)) this._smother(ball, result);
-      } else {
+      } else if (mode === 'loose') {
         this._maybeReact(ball);
         this._tryHandSave(ball, result, dt);
         if (this.state === 'set') this._blockBody(ball); // still up: stay solid
       }
     } else if (this.state === 'dive' || this.state === 'jump') {
       if (!this.saved) this._tryHandSave(ball, result, dt);
-    } else if (this.state === 'recover') {
+    } else if (this.state === 'recover' && mode === 'loose') {
       this._blockBody(ball);
     }
     return result;

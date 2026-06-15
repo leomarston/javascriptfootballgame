@@ -130,10 +130,83 @@ const IDLE = {
   ]
 };
 
+// ---- one-shot action clips (explicit keyframes, not cyclic) ----------------
+
+function qT(bone, times, eulers) {
+  const values = [];
+  const e = new THREE.Euler();
+  const q = new THREE.Quaternion();
+  for (const [ex, ey, ez] of eulers) {
+    e.set(ex, ey, ez, 'XYZ');
+    q.setFromEuler(e);
+    values.push(q.x, q.y, q.z, q.w);
+  }
+  return new THREE.QuaternionKeyframeTrack(`${bone}.quaternion`, times, values);
+}
+function pT(bone, times, positions) {
+  const values = [];
+  for (const v of positions) values.push(v[0], v[1], v[2]);
+  return new THREE.VectorKeyframeTrack(`${bone}.position`, times, values);
+}
+const kC = (bone, e) => qT(bone, [0], [e]); // constant pose
+
+// Standing tackle — plant, lunge and poke a leg out at the ball, then recover.
+function tackleClip() {
+  const D = 0.5;
+  const T = [0, 0.18, 0.5];
+  return new THREE.AnimationClip('tackle', D, [
+    pT('hips', T, [[0, HIP_Y - 0.05, 0], [0, HIP_Y - 0.12, 0.05], [0, HIP_Y - 0.05, 0]]),
+    qT('spine', T, [[0.15, 0, 0], [0.35, 0, 0], [0.2, 0, 0]]),
+    kC('chest', [0.05, 0, 0]),
+    qT('head', T, [[-0.1, 0, 0], [0.05, 0, 0], [-0.05, 0, 0]]),
+    // right leg pokes out at the ball
+    qT('thighR', T, [[0, 0, 0], [-0.95, 0, 0.06], [-0.3, 0, 0]]),
+    qT('shinR', T, [[0.2, 0, 0], [0.05, 0, 0], [0.3, 0, 0]]),
+    qT('footR', T, [[0, 0, 0], [-0.25, 0, 0], [0, 0, 0]]),
+    // left leg plants and bends
+    qT('thighL', T, [[0.1, 0, 0], [0.45, 0, 0.06], [0.2, 0, 0]]),
+    qT('shinL', T, [[0.2, 0, 0], [0.75, 0, 0], [0.4, 0, 0]]),
+    kC('footL', [-0.1, 0, 0]),
+    // arms out for balance
+    qT('upperArmL', T, [[-0.2, 0, 0.45], [-0.35, 0, 0.6], [-0.2, 0, 0.45]]),
+    qT('upperArmR', T, [[-0.2, 0, -0.45], [-0.35, 0, -0.6], [-0.2, 0, -0.45]]),
+    kC('lowerArmL', [-0.4, 0, 0]),
+    kC('lowerArmR', [-0.4, 0, 0])
+  ]);
+}
+
+// Slide tackle — drop low, lean back and slide in feet-first, leading leg out.
+function slideClip() {
+  const D = 0.9;
+  const T = [0, 0.22, 0.55, 0.9];
+  return new THREE.AnimationClip('slide', D, [
+    pT('hips', T, [[0, HIP_Y - 0.08, 0], [0, 0.42, 0], [0, 0.38, 0], [0, HIP_Y - 0.18, 0]]),
+    qT('hips', T, [[0, 0, 0], [-0.7, 0, 0], [-0.85, 0, 0], [-0.45, 0, 0]]),
+    qT('spine', T, [[0.05, 0, 0], [-0.1, 0, 0], [-0.15, 0, 0], [0.15, 0, 0]]),
+    kC('chest', [0.04, 0, 0]),
+    qT('head', T, [[-0.05, 0, 0], [-0.2, 0, 0], [-0.15, 0, 0], [0.05, 0, 0]]),
+    // leading (right) leg extends forward
+    qT('thighR', T, [[0.2, 0, 0], [-0.5, 0, 0.05], [-0.45, 0, 0.05], [0.3, 0, 0]]),
+    qT('shinR', T, [[0.4, 0, 0], [0.1, 0, 0], [0.1, 0, 0], [0.6, 0, 0]]),
+    kC('footR', [-0.15, 0, 0]),
+    // trailing (left) leg tucks under
+    qT('thighL', T, [[0.2, 0, 0], [0.7, 0, -0.05], [0.9, 0, -0.05], [0.4, 0, 0]]),
+    qT('shinL', T, [[0.4, 0, 0], [1.3, 0, 0], [1.4, 0, 0], [0.8, 0, 0]]),
+    kC('footL', [0.1, 0, 0]),
+    // arms back/out for balance
+    qT('upperArmL', T, [[0.3, 0, 0.5], [0.6, 0, 0.55], [0.7, 0, 0.55], [0.2, 0, 0.5]]),
+    qT('upperArmR', T, [[0.3, 0, -0.5], [0.6, 0, -0.55], [0.7, 0, -0.55], [0.2, 0, -0.5]]),
+    kC('lowerArmL', [-0.4, 0, 0]),
+    kC('lowerArmR', [-0.4, 0, 0])
+  ]);
+}
+
 export function buildPlayerClips() {
   return {
     idle: clip('idle', 3.4, IDLE),
     walk: clip('walk', 1.0, WALK),
-    run: clip('run', 0.62, RUN)
+    run: clip('run', 0.62, RUN),
+    tackle: tackleClip(),
+    slide: slideClip()
   };
 }
