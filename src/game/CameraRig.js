@@ -60,8 +60,8 @@ export class CameraRig {
     }
 
     if (this.mode === 'broadcast') {
-      // close, high-angle cam that tracks the player from the +Z side
-      this._desiredPos.set(bp.x, 15, bp.z + 20);
+      // high-angle cam that tracks the action from the +Z side
+      this._desiredPos.set(bp.x, 18, bp.z + 26);
       this._desiredTarget.set(bp.x, 1.0, bp.z);
     } else if (this.mode === 'follow') {
       const back = this.forward.clone().multiplyScalar(-8);

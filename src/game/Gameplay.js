@@ -36,6 +36,7 @@ const ASSIST_RADIUS = 4.0;
 const ASSIST_MAX = 0.55;
 const ASSIST_ALIGN = 0.25; // must be moving within ~75° of the ball
 const CONTROLLED_CAPTURE_BONUS = 0.18;
+const CAM_LEAN = 7; // camera centre may lean this far from the ball (keeps it in frame)
 
 // formation elasticity
 const LINE_FACTOR = 0.32; // how much each player follows the ball up/down the pitch
@@ -76,6 +77,8 @@ export class Gameplay {
     this.shotCharging = false;
     this.shotCharge = 0;
     this.shotCam = 0; // briefly follow the ball after a shot
+    this.switchRank = 0; // how far down the proximity list Q has stepped
+    this.lastSwitchT = 0;
     this.presser = {};
     this.cover = {};
     this.support = {};
@@ -86,6 +89,7 @@ export class Gameplay {
     this._up = new THREE.Vector3(0, 1, 0);
     this._t = new THREE.Vector3();
     this._assist = new THREE.Vector3();
+    this._camTarget = { position: new THREE.Vector3(), velocity: new THREE.Vector3() };
 
     this.bind();
     this.kickoff();
@@ -136,16 +140,22 @@ export class Gameplay {
     }
   }
 
-  // Cycle through HOME players in order of distance to the ball, so repeated
-  // presses step to the next-closest rather than toggling between two.
+  // A fresh press picks the player nearest the ball; pressing again quickly
+  // (insisting) steps to the next-nearest, so you only reach far players if you
+  // really keep asking for them.
   manualSwitch() {
     if (this.celebrateT > 0) return;
     const order = this.home
       .map((p, i) => i)
       .sort((a, b) => this.horiz(this.home[a].position, this.ball.position)
         - this.horiz(this.home[b].position, this.ball.position));
-    const cur = order.indexOf(this.controlled);
-    this.controlled = order[(cur + 1) % order.length];
+    const now = Date.now() / 1000;
+    let rank = now - this.lastSwitchT < 0.7 ? this.switchRank + 1 : 0;
+    rank = THREE.MathUtils.clamp(rank, 0, order.length - 1);
+    if (order[rank] === this.controlled) rank = Math.min(rank + 1, order.length - 1);
+    this.controlled = order[rank];
+    this.switchRank = rank;
+    this.lastSwitchT = now;
     this.switchLock = 1.0;
     this.passTarget = null;
     this.passTimer = 0;
@@ -586,16 +596,30 @@ export class Gameplay {
     this.ball.position.y = Math.max(this.ball.position.y, BALL.RADIUS);
   }
 
-  pass(me, charge = 0.5) {
-    let mate = this.bestPassTarget(me);
-    if (!mate) {
-      let bd = Infinity;
-      for (const m of this.home) {
-        if (m === me) continue;
-        const d = this.horiz(me.position, m.position);
-        if (d < bd) { bd = d; mate = m; }
-      }
+  // Pass to the teammate that's both nearby and in the direction you're facing.
+  choosePassTarget(me) {
+    const fx = Math.sin(me.heading);
+    const fz = Math.cos(me.heading);
+    let best = null;
+    let bestScore = -Infinity;
+    let nearest = null;
+    let nd = Infinity;
+    for (const m of this.home) {
+      if (m === me) continue;
+      const dx = m.position.x - me.position.x;
+      const dz = m.position.z - me.position.z;
+      const d = Math.hypot(dx, dz) || 1;
+      if (d < nd) { nd = d; nearest = m; }
+      const align = (dx / d) * fx + (dz / d) * fz; // how much they're in front of you
+      if (align < 0.2) continue; // not in the direction you're facing
+      const score = align - d * 0.05; // in your direction, and the closer the better
+      if (score > bestScore) { bestScore = score; best = m; }
     }
+    return best || nearest;
+  }
+
+  pass(me, charge = 0.5) {
+    const mate = this.choosePassTarget(me);
     if (!mate) return;
     const power = THREE.MathUtils.lerp(10.5, 27, charge);
     const lead = this.horiz(this.ball.position, mate.position) / Math.max(6, power);
@@ -618,9 +642,23 @@ export class Gameplay {
     this.shotCam = 1.6; // watch the ball, not the shooter
   }
 
-  // What the camera should follow — the ball just after a shot, else your player.
+  // The camera always keeps the ball in frame: it centres near the ball, leaning
+  // toward your player, but never further than CAM_LEAN from the ball. Right
+  // after a shot it sits almost fully on the ball so you can watch the effort.
   cameraTarget() {
-    return this.shotCam > 0 ? this.ball : this.controlledPlayer();
+    const ball = this.ball.position;
+    const me = this.controlledPlayer().position;
+    const f = this.shotCam > 0 ? 0.15 : 0.5;
+    let ox = (me.x - ball.x) * f;
+    let oz = (me.z - ball.z) * f;
+    const len = Math.hypot(ox, oz);
+    if (len > CAM_LEAN) {
+      ox *= CAM_LEAN / len;
+      oz *= CAM_LEAN / len;
+    }
+    this._camTarget.position.set(ball.x + ox, 0, ball.z + oz);
+    this._camTarget.velocity.copy(this.controlledPlayer().velocity);
+    return this._camTarget;
   }
 
   cross(me) {

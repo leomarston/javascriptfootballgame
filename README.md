@@ -96,9 +96,12 @@ every asset generated procedurally in code.
 - **Subtle control assist**: when you're already running toward a loose ball your
   player is gently steered onto it (stronger the closer you get) so imprecise
   input doesn't just miss — but it switches off the moment you steer elsewhere.
-- Separate **pass**, **shoot** and **cross** actions: the cross floats a lofted
+- Separate **pass**, **shoot** and **cross** actions: a pass finds the teammate
+  who's nearest **in the direction you're facing**, the cross floats a lofted
   ball into the **penalty area** (onto a teammate's run when one is there), and
   shots auto‑aim at the corner away from the keeper.
+- The camera **always keeps the ball in frame** (leaning toward your player),
+  and swings onto the ball after a shot.
 - **Tackles and slides** win the ball off a carrier (no fouls): a standing tackle
   takes possession, a slide knocks it loose.
 - **Throw-ins**: a ball out over a touchline restarts as a throw-in for the team
@@ -122,7 +125,7 @@ every asset generated procedurally in code.
 | **J** | Shoot — hold for power, auto‑aimed (capped, so own‑half pot‑shots won't carry) |
 | **K** | Cross / lofted ball into the box |
 | **X** | Slide tackle (defending) |
-| **Q** | Switch player (cycles by nearest to the ball) |
+| **Q** | Switch player — nearest to the ball; press again to step further |
 | **R** | Reset to kickoff |
 | **C** | Cycle camera (Broadcast · Follow · Aerial · Free) |
 | **N** | Toggle day / night |
