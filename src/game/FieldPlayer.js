@@ -84,7 +84,7 @@ export class FieldPlayer {
     this._won = false;
     this.actions.tackle.reset();
     const f = this.forward();
-    this.velocity.set(f.x * 3.5, 0, f.z * 3.5);
+    this.velocity.set(f.x * 4.5, 0, f.z * 4.5); // a committed lunge at the ball
     return true;
   }
 
@@ -106,7 +106,7 @@ export class FieldPlayer {
     return false;
   }
   actionReach() {
-    return this.state === 'slide' ? 1.25 : 0.95;
+    return this.state === 'slide' ? 1.25 : 1.1;
   }
   get busy() {
     return this.state !== 'loco';
@@ -186,7 +186,8 @@ export class FieldPlayer {
         w.idle = 1 - t;
         w.walk = t;
       } else {
-        const t = Math.min(1, (sp - WALK_SPEED) / (RUN_SPEED - WALK_SPEED));
+        // reach a full run a bit before top speed so it doesn't read as a jog
+        const t = Math.min(1, (sp - WALK_SPEED) / (5.6 - WALK_SPEED));
         w.walk = 1 - t;
         w.run = t;
       }
