@@ -83,16 +83,17 @@ class App {
     this.hud.setLoading(0.97, 'Lining up the teams (4-4-2)');
     // Two full 4-4-2 sides: HOME (red, you control one player) vs AWAY (blue).
     const awayKit = { shirt: TEAMS.AWAY.primary, socks: TEAMS.AWAY.primary, shorts: 0x0b1f3a };
-    const homeGkKit = { shirt: 0xe8772e, shorts: 0x14202e, socks: 0xe8772e, glove: 0xeef1f4, boot: 0x15151a, hair: 0x1a1614 };
+    const homeGkKit = { shirt: 0xe8772e, shorts: 0x14202e, socks: 0xe8772e, glove: 0xeef1f4, boot: 0x15151a };
+    const awayGkKit = { shirt: 0x16a085, shorts: 0x0b1f3a, socks: 0x16a085, glove: 0xeef1f4, boot: 0x15151a };
     this.home = [];
     this.away = [];
     for (const s of teamSheet('HOME')) {
-      if (s.isKeeper) this.homeKeeper = new Goalkeeper({ side: -1, team: 'HOME', name: s.name, kit: homeGkKit });
-      else this.home.push(new FieldPlayer({ team: 'HOME', role: s.role, name: s.name, label: s.label, number: s.number, homePos: s.home }));
+      if (s.isKeeper) this.homeKeeper = new Goalkeeper({ side: -1, team: 'HOME', name: s.name, kit: { ...homeGkKit, hair: s.hairColor }, hairStyle: s.hairStyle });
+      else this.home.push(new FieldPlayer({ team: 'HOME', role: s.role, name: s.name, label: s.label, number: s.number, homePos: s.home, kit: { hair: s.hairColor }, hairStyle: s.hairStyle }));
     }
     for (const s of teamSheet('AWAY')) {
-      if (s.isKeeper) this.awayKeeper = new Goalkeeper({ side: 1, team: 'AWAY', name: s.name });
-      else this.away.push(new FieldPlayer({ team: 'AWAY', role: s.role, name: s.name, label: s.label, number: s.number, homePos: s.home, kit: awayKit }));
+      if (s.isKeeper) this.awayKeeper = new Goalkeeper({ side: 1, team: 'AWAY', name: s.name, kit: { ...awayGkKit, hair: s.hairColor }, hairStyle: s.hairStyle });
+      else this.away.push(new FieldPlayer({ team: 'AWAY', role: s.role, name: s.name, label: s.label, number: s.number, homePos: s.home, kit: { ...awayKit, hair: s.hairColor }, hairStyle: s.hairStyle }));
     }
     for (const p of [...this.home, ...this.away]) this.scene.add(p.object);
     this.scene.add(this.homeKeeper.object);

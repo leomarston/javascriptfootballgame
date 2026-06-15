@@ -31,7 +31,7 @@ const DEFAULT_KIT = {
 };
 
 export class Goalkeeper {
-  constructor({ side = 1, team = 'AWAY', name = '', kit } = {}) {
+  constructor({ side = 1, team = 'AWAY', name = '', kit, hairStyle } = {}) {
     this.side = side;
     this.team = team;
     this.name = name;
@@ -39,7 +39,7 @@ export class Goalkeeper {
     this.roleType = 'GK';
     this.goalX = side * FIELD.HALF_LENGTH;
 
-    const rig = buildPlayerRig(kit ? { longSleeves: true, kit } : DEFAULT_KIT);
+    const rig = buildPlayerRig(kit ? { longSleeves: true, kit, hairStyle } : { ...DEFAULT_KIT, hairStyle });
     this.mesh = rig.mesh;
     this.mesh.name = 'Goalkeeper';
     this.bones = rig.bones;

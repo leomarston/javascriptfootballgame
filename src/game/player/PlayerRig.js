@@ -101,8 +101,36 @@ function ballAt(r, x, y, z) {
   return g;
 }
 
+// Hair geometry by style (bound to the head bone; the head's eyes sit lower on
+// the front so caps on top/back never cover the face).
+function hairParts(style, hair) {
+  switch (style) {
+    case 'bald':
+      return [];
+    case 'buzz':
+      return [['head', ellipsoid(0.12, 0.08, 0.122, 0.085, -0.008), hair]];
+    case 'afro':
+      return [['head', ellipsoid(0.155, 0.142, 0.135, 0.1, -0.05), hair]];
+    case 'mohawk':
+      return [['head', ellipsoid(0.028, 0.09, 0.14, 0, 0.155, -0.005), hair]];
+    case 'bun':
+      return [
+        ['head', ellipsoid(0.122, 0.098, 0.126, 0.092, -0.022), hair],
+        ['head', ballAt(0.052, 0, 0.2, -0.05), hair]
+      ];
+    case 'long':
+      return [
+        ['head', ellipsoid(0.128, 0.12, 0.135, 0.082, -0.035), hair],
+        ['head', ellipsoid(0.105, 0.11, 0.055, -0.02, -0.1), hair]
+      ];
+    case 'short':
+    default:
+      return [['head', ellipsoid(0.125, 0.105, 0.128, 0.1, -0.03), hair]];
+  }
+}
+
 // Each visible body part: [boneName, geometry, colour].
-function bodyParts(kit) {
+function bodyParts(kit, hairStyle) {
   const skin = col(kit.skin);
   const shirt = col(kit.shirt);
   const shorts = col(kit.shorts);
@@ -122,9 +150,8 @@ function bodyParts(kit) {
     ['chest', ellipsoid(0.2, 0.16, 0.12, 0.08), shirt],
     ['neck', limbUp(0.1, 0.045), skin],
 
-    // head: skin dome, hair cap on top/back, two eyes on the front (+Z)
+    // head: skin dome + eyes (hair added per style below)
     ['head', ellipsoid(0.115, 0.13, 0.12, 0.06, 0.004), skin],
-    ['head', ellipsoid(0.125, 0.105, 0.13, 0.1, -0.028), hair],
     ['head', ballAt(0.02, 0.045, 0.065, 0.1), eye],
     ['head', ballAt(0.02, -0.045, 0.065, 0.1), eye],
 
@@ -157,7 +184,7 @@ function bodyParts(kit) {
     ['shinR', limbDown(0.42, 0.057), socks],
     ['footR', ellipsoid(0.055, 0.045, 0.13, -0.02, 0.05), boot],
     ['footR', boxAt(0.1, 0.022, 0.26, 0, -0.052, 0.05), sole]
-  ];
+  ].concat(hairParts(hairStyle, hair));
 }
 
 function paintAndSkin(geo, color, boneIdx) {
@@ -179,6 +206,7 @@ function paintAndSkin(geo, color, boneIdx) {
 
 export function buildPlayerRig(options = {}) {
   const kit = { ...DEFAULT_KIT, ...(options.kit || {}) };
+  const hairStyle = options.hairStyle || 'short';
 
   // ---- build the bone hierarchy ----
   const bones = {};
@@ -198,7 +226,7 @@ export function buildPlayerRig(options = {}) {
 
   // ---- bake each part into the mesh (bind) space ----
   const parts = [];
-  for (const [boneName, geo, color] of bodyParts(kit)) {
+  for (const [boneName, geo, color] of bodyParts(kit, hairStyle)) {
     paintAndSkin(geo, color, boneIndex.get(boneName));
     geo.applyMatrix4(bones[boneName].matrixWorld); // bone-local -> bind space
     parts.push(geo);

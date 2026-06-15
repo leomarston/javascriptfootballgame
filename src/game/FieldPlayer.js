@@ -24,8 +24,8 @@ const SLIDE_DUR = 0.9;
 const DOWN_DUR = 0.4;
 
 export class FieldPlayer {
-  constructor({ team = 'HOME', role = 'MF', kit, name = '', label = '', number = 0, homePos } = {}) {
-    const rig = buildPlayerRig(kit ? { kit } : {});
+  constructor({ team = 'HOME', role = 'MF', kit, hairStyle, name = '', label = '', number = 0, homePos } = {}) {
+    const rig = buildPlayerRig({ kit, hairStyle });
     this.mesh = rig.mesh;
     this.bones = rig.bones;
     this.object = new THREE.Group();
