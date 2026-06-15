@@ -115,6 +115,25 @@ body {
   backdrop-filter: blur(10px);
 }
 
+/* ---------- charge bar ---------- */
+.chargebar {
+  position: absolute;
+  width: 64px;
+  height: 7px;
+  transform: translate(-50%, 0);
+  background: rgba(8, 10, 16, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.chargefill {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  transition: width 0.04s linear;
+}
+
 /* ---------- goal banner ---------- */
 .goal-banner {
   position: absolute;

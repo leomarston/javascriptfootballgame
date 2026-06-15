@@ -49,6 +49,11 @@ export class HUD {
     // ---- controlled-player name tag -------------------------------------
     this.playerTag = el('div', 'playertag', root, '');
 
+    // ---- charge bar (power for pass / shot, shown under the player) ------
+    this.chargeBar = el('div', 'chargebar', root);
+    this.chargeFill = el('div', 'chargefill', this.chargeBar);
+    this.chargeBar.style.display = 'none';
+
     // ---- goal banner -----------------------------------------------------
     this.goalBanner = el('div', 'goal-banner hidden', root, 'GOAL!');
   }
@@ -61,6 +66,18 @@ export class HUD {
   setPlayer(team, name, label) {
     const tag = `${team} · ${name}${label ? ' · ' + label : ''}`;
     if (this.playerTag.textContent !== tag) this.playerTag.textContent = tag;
+  }
+
+  setCharge(active, value, kind, x, y) {
+    if (!active) {
+      if (this.chargeBar.style.display !== 'none') this.chargeBar.style.display = 'none';
+      return;
+    }
+    this.chargeBar.style.display = 'block';
+    this.chargeBar.style.left = `${x}px`;
+    this.chargeBar.style.top = `${y}px`;
+    this.chargeFill.style.width = `${Math.round(value * 100)}%`;
+    this.chargeFill.style.background = kind === 'shot' ? '#ff5b3b' : '#46d39a';
   }
 
   showGoal(team) {

@@ -41,6 +41,7 @@ class App {
     this.scene = new THREE.Scene();
     this.timer = new THREE.Timer();
     this.isNight = true;
+    this._proj = new THREE.Vector3();
 
     // Some software/headless GL stacks (SwiftShader, llvmpipe) can't run the
     // HDR bloom pass and render black; detect that and degrade gracefully.
@@ -167,6 +168,18 @@ class App {
     this.rig.update(dt, this.gameplay.cameraTarget()); // follows the ball after a shot
     this.selRing.position.set(ctrl.position.x, 0.04, ctrl.position.z);
     this.hud.setPlayer(TEAMS.HOME.short, ctrl.name, ctrl.label);
+
+    // power bar under the player while charging a pass / shot
+    const ci = this.gameplay.chargeInfo();
+    if (ci.active) {
+      this._proj.set(ctrl.position.x, 0.1, ctrl.position.z).project(this.rig.camera);
+      const sx = (this._proj.x * 0.5 + 0.5) * innerWidth;
+      const sy = (-this._proj.y * 0.5 + 0.5) * innerHeight + 16;
+      this.hud.setCharge(true, ci.value, ci.kind, sx, sy);
+    } else {
+      this.hud.setCharge(false);
+    }
+
     this.stadium.update(dt);
     this.hud.update(dt);
     this.postfx.render(this.rig.camera);

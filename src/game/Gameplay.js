@@ -77,6 +77,8 @@ export class Gameplay {
     this.shotCharging = false;
     this.shotCharge = 0;
     this.shotCam = 0; // briefly follow the ball after a shot
+    this.kickoffT = 0; // brief lined-up pause before play starts
+    this.kickoffTaker = null;
     this.switchRank = 0; // how far down the proximity list Q has stepped
     this.lastSwitchT = 0;
     this.presser = {};
@@ -114,7 +116,7 @@ export class Gameplay {
   }
 
   actionDown(k) {
-    if (this.celebrateT > 0) return;
+    if (this.celebrateT > 0 || this.kickoffT > 0) return;
     const me = this.controlledPlayer();
     if (me.busy) return;
     if (this.ballOwner === me) {
@@ -209,6 +211,16 @@ export class Gameplay {
     if (this.passTimer > 0) this.passTimer = Math.max(0, this.passTimer - dt);
     if (this.passCharging) this.passCharge = Math.min(1, this.passCharge + dt / 0.6);
     if (this.shotCharging) this.shotCharge = Math.min(1, this.shotCharge + dt / 0.75);
+
+    if (this.kickoffT > 0) {
+      this.kickoffT -= dt;
+      for (const a of this.field) a.update(dt, null, false); // teams hold the lineup
+      for (const k of this.keepers) k.update(dt, this.ball, 'own');
+      this.ball.position.set(0, BALL.RADIUS, 0); // ball waits on the centre spot
+      this.ball.syncMesh();
+      if (this.kickoffT <= 0) this.setOwner(this.kickoffTaker); // kickoff is taken
+      return;
+    }
 
     if (this.celebrateT > 0) {
       this.celebrateT -= dt;
@@ -661,6 +673,13 @@ export class Gameplay {
     return this._camTarget;
   }
 
+  // Charge state for the on-screen power bar while passing / shooting.
+  chargeInfo() {
+    if (this.shotCharging) return { active: true, value: this.shotCharge, kind: 'shot' };
+    if (this.passCharging) return { active: true, value: this.passCharge, kind: 'pass' };
+    return { active: false, value: 0, kind: '' };
+  }
+
   cross(me) {
     let mate = null;
     let bestAhead = -Infinity;
@@ -765,11 +784,16 @@ export class Gameplay {
     }
     this.homeKeeper.reset();
     this.awayKeeper.reset();
-    // a HOME forward kicks off from the centre spot
+    // both teams line up in their halves; a HOME forward stands over the spot
     this.controlled = this.home.length - 2;
-    const taker = this.home[this.controlled];
-    taker.reset(-1, 0, Math.PI / 2);
-    this.setOwner(taker);
+    this.kickoffTaker = this.home[this.controlled];
+    this.kickoffTaker.reset(-1.2, 0, Math.PI / 2);
+    this.ball.position.set(0, BALL.RADIUS, 0);
+    this.ball.velocity.set(0, 0, 0);
+    this.ball.angularVelocity.set(0, 0, 0);
+    this.ball.syncMesh();
+    this.setOwner(null); // dead until the brief kickoff pause ends
+    this.kickoffT = 1.2;
     this.passTarget = null;
     this.passTimer = 0;
     this.switchLock = 0;
