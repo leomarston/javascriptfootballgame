@@ -24,7 +24,7 @@ const SLIDE_DUR = 0.9;
 const DOWN_DUR = 0.4;
 
 export class FieldPlayer {
-  constructor({ team = 'HOME', role = 'outfield', kit } = {}) {
+  constructor({ team = 'HOME', role = 'MF', kit, name = '', label = '', number = 0, homePos } = {}) {
     const rig = buildPlayerRig(kit ? { kit } : {});
     this.mesh = rig.mesh;
     this.bones = rig.bones;
@@ -32,7 +32,11 @@ export class FieldPlayer {
     this.object.add(this.mesh);
 
     this.team = team;
-    this.role = role;
+    this.roleType = role; // 'DF' | 'MF' | 'FW'
+    this.name = name;
+    this.label = label;
+    this.number = number;
+    this.homePos = new THREE.Vector3(homePos ? homePos.x : 0, 0, homePos ? homePos.z : 0);
     this.position = this.object.position; // feet origin
     this.velocity = new THREE.Vector3();
     this.heading = 0;

@@ -46,6 +46,9 @@ export class HUD {
     el('span', 'tname', away, TEAMS.AWAY.short);
     el('span', 'badge', away);
 
+    // ---- controlled-player name tag -------------------------------------
+    this.playerTag = el('div', 'playertag', root, '');
+
     // ---- goal banner -----------------------------------------------------
     this.goalBanner = el('div', 'goal-banner hidden', root, 'GOAL!');
   }
@@ -53,6 +56,11 @@ export class HUD {
   setScore(h, a) {
     this.homeScore.textContent = h;
     this.awayScore.textContent = a;
+  }
+
+  setPlayer(team, name, label) {
+    const tag = `${team} · ${name}${label ? ' · ' + label : ''}`;
+    if (this.playerTag.textContent !== tag) this.playerTag.textContent = tag;
   }
 
   showGoal(team) {

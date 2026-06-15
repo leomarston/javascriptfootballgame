@@ -1,18 +1,15 @@
 /**
- * Goalkeeper.js — a smart keeper for the AWAY side, defending the +X goal.
+ * Goalkeeper.js — a smart keeper that defends one goal (chosen by `side`).
  *
- * Behaviour:
- *   • Holds its line and shuffles to stay on the ball→goal angle, coming off
- *     the line to narrow the angle as the ball approaches.
- *   • Predicts a shot's crossing point and only reacts when it's ON TARGET:
- *     dives to the correct side for corners, jumps for high central balls, and
- *     ignores anything going wide.
- *   • Catches soft shots (then punts upfield) and parries hard ones; in a 1‑v‑1
- *     it smothers the ball off the dribbler.
+ *   side = +1 → defends the +X goal (faces −X);  side = −1 → defends −X.
  *
- * It reuses the shared rig (PlayerRig) in a keeper kit and its own authored
- * clips (GoalkeeperAnimations). Saves are detected from the live world position
- * of the gloves and chest, so good positioning and big dives are rewarded.
+ * Behaviour: holds its line and shuffles onto the ball→goal angle, comes off the
+ * line to narrow the angle, predicts a shot's crossing point and only reacts when
+ * it's ON TARGET — diving the correct way for corners, jumping for high central
+ * balls, ignoring balls going wide. Catches soft shots (then punts upfield),
+ * parries hard ones, stays solid so the ball can't pass through, and in a 1-v-1
+ * smothers the ball off an attacker. Saves are read from the live glove/chest
+ * positions, so good positioning and big dives are rewarded.
  */
 
 import * as THREE from 'three';
@@ -20,85 +17,78 @@ import { buildPlayerRig } from './player/PlayerRig.js';
 import { buildKeeperClips } from './player/GoalkeeperAnimations.js';
 import { FIELD, GOAL, BALL } from '../config.js';
 
-const GOAL_X = FIELD.HALF_LENGTH; // the goal line the keeper defends (+X)
-const LINE_DEPTH = 0.9; // how far off the line it sets by default
-const GOAL_HALF = GOAL.WIDTH / 2; // 3.66
-const COVER_Z = GOAL_HALF + 0.3; // lateral coverage limit
-const SET_SPEED = 4.5; // positioning speed
-const REACT_SPEED = 7.5; // quick step to cover a near shot
-const REACH = 0.6; // save radius around each glove / chest
-const DIVE_RANGE = 3.3; // max lateral distance it will dive
+const LINE_DEPTH = 0.9;
+const GOAL_HALF = GOAL.WIDTH / 2;
+const COVER_Z = GOAL_HALF + 0.3;
+const SET_SPEED = 4.5;
+const REACH = 0.6;
+const DIVE_RANGE = 3.3;
 const G = 12;
 
-const KEEPER_OPTS = {
+const DEFAULT_KIT = {
   longSleeves: true,
-  kit: {
-    shirt: 0x16a085, // teal keeper top, distinct from both teams
-    shorts: 0x0b1f3a,
-    socks: 0x16a085,
-    glove: 0xeef1f4,
-    boot: 0x15151a,
-    hair: 0x1a1614
-  }
+  kit: { shirt: 0x16a085, shorts: 0x0b1f3a, socks: 0x16a085, glove: 0xeef1f4, boot: 0x15151a, hair: 0x1a1614 }
 };
 
 export class Goalkeeper {
-  constructor() {
-    const rig = buildPlayerRig(KEEPER_OPTS);
+  constructor({ side = 1, team = 'AWAY', name = '', kit } = {}) {
+    this.side = side;
+    this.team = team;
+    this.name = name;
+    this.label = 'GK';
+    this.roleType = 'GK';
+    this.goalX = side * FIELD.HALF_LENGTH;
+
+    const rig = buildPlayerRig(kit ? { longSleeves: true, kit } : DEFAULT_KIT);
     this.mesh = rig.mesh;
     this.mesh.name = 'Goalkeeper';
     this.bones = rig.bones;
 
     this.object = new THREE.Group();
     this.object.add(this.mesh);
-    this.object.rotation.y = -Math.PI / 2; // face −X, toward the field
+    this.object.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2; // face the field
     this.position = this.object.position;
 
     this.mixer = new THREE.AnimationMixer(this.mesh);
     const clips = buildKeeperClips();
     this.actions = {};
-    for (const [name, c] of Object.entries(clips)) this.actions[name] = this.mixer.clipAction(c);
-    for (const name of ['divePos', 'diveNeg', 'jump']) {
-      this.actions[name].setLoop(THREE.LoopOnce);
-      this.actions[name].clampWhenFinished = true;
+    for (const [n, c] of Object.entries(clips)) this.actions[n] = this.mixer.clipAction(c);
+    for (const n of ['divePos', 'diveNeg', 'jump']) {
+      this.actions[n].setLoop(THREE.LoopOnce);
+      this.actions[n].clampWhenFinished = true;
     }
     this.weights = { idle: 1, shuffle: 0, divePos: 0, diveNeg: 0, jump: 0 };
-    for (const [name, a] of Object.entries(this.actions)) {
+    for (const [n, a] of Object.entries(this.actions)) {
       a.play();
-      a.setEffectiveWeight(this.weights[name]);
+      a.setEffectiveWeight(this.weights[n]);
     }
 
     this._h1 = new THREE.Vector3();
     this._h2 = new THREE.Vector3();
     this._c = new THREE.Vector3();
-    this._seg = new THREE.Vector3();
     this.diveVel = new THREE.Vector3();
-
     this.reset();
   }
 
   reset() {
-    this.state = 'set'; // set | dive | jump | recover | hold
+    this.state = 'set';
     this.stateT = 0;
     this.activeDive = null;
     this.saved = false;
     this.holdT = 0;
     this.reactCooldown = 0;
     this.moveSpeed = 0;
-    this.diveDur = 0.72;
+    this.diveDur = 0.95;
     this.diveVel.set(0, 0, 0);
-    this.position.set(GOAL_X - LINE_DEPTH, 0, 0);
+    this.position.set(this.goalX - this.side * LINE_DEPTH, 0, 0);
   }
 
-  // --- main update --------------------------------------------------------
-
-  // mode: 'loose' (react + save), 'home' (smother a dribbler), 'own' (just hold)
+  // mode: 'loose' (react + save), 'home' (smother an attacker), 'own' (just hold)
   update(dt, ball, mode = 'loose') {
     this.stateT += dt;
     this.reactCooldown = Math.max(0, this.reactCooldown - dt);
     const result = { tookPossession: false, saved: false };
 
-    // 1) move the keeper / advance the active action
     if (this.state === 'hold') {
       this.holdT -= dt;
     } else if (this.state === 'dive' || this.state === 'jump') {
@@ -110,12 +100,10 @@ export class Goalkeeper {
       this._setPositioning(dt, ball);
     }
 
-    // 2) blend + advance the animation, then refresh world matrices
     this._updateAnimation(dt);
     this.mixer.update(dt);
     this.object.updateMatrixWorld(true);
 
-    // 3) interact with the ball using the freshly posed gloves
     if (this.state === 'hold') {
       this._holdBall(ball);
       if (this.holdT <= 0) {
@@ -128,7 +116,7 @@ export class Goalkeeper {
       } else if (mode === 'loose') {
         this._maybeReact(ball);
         this._tryHandSave(ball, result, dt);
-        if (this.state === 'set') this._blockBody(ball); // still up: stay solid
+        if (this.state === 'set') this._blockBody(ball);
       }
     } else if (this.state === 'dive' || this.state === 'jump') {
       if (!this.saved) this._tryHandSave(ball, result, dt);
@@ -138,46 +126,20 @@ export class Goalkeeper {
     return result;
   }
 
-  // The keeper's torso/legs are solid — a loose ball can never pass through it.
-  _blockBody(ball) {
-    if (ball.position.y > 2.0) return; // ball is over the keeper's head
-    const minD = BALL.RADIUS + 0.4; // body radius
-    const dx = ball.position.x - this.position.x;
-    const dz = ball.position.z - this.position.z;
-    const d = Math.hypot(dx, dz);
-    if (d < minD && d > 1e-4) {
-      const nx = dx / d;
-      const nz = dz / d;
-      ball.position.x = this.position.x + nx * minD;
-      ball.position.z = this.position.z + nz * minD;
-      const vn = ball.velocity.x * nx + ball.velocity.z * nz;
-      if (vn < 0) {
-        ball.velocity.x -= 1.6 * vn * nx;
-        ball.velocity.z -= 1.6 * vn * nz;
-      }
-      ball.syncMesh();
-    }
-  }
-
-  // --- positioning --------------------------------------------------------
-
   _setPositioning(dt, ball) {
-    const onTarget = ball.position.x < GOAL_X && ball.position.x > 2;
-    const distToGoal = GOAL_X - ball.position.x;
-    // come off the line a touch to narrow the angle only when the ball is close
-    // and central — otherwise hold the line so it stands planted in the goal
-    const advance = onTarget && Math.abs(ball.position.z) < 12
+    const s = this.side;
+    const onField = (ball.position.x - this.goalX) * s < 0; // ball in front of goal
+    const distToGoal = Math.abs(this.goalX - ball.position.x);
+    const advance = onField && Math.abs(ball.position.z) < 12
       ? THREE.MathUtils.clamp(1 - distToGoal / 18, 0, 1) * 1.4
       : 0;
-    const targetX = GOAL_X - (LINE_DEPTH + advance);
+    const targetX = this.goalX - s * (LINE_DEPTH + advance);
     const targetZ = THREE.MathUtils.clamp(ball.position.z * 0.85, -COVER_Z, COVER_Z);
-
     const dx = targetX - this.position.x;
     const dz = targetZ - this.position.z;
     const d = Math.hypot(dx, dz);
-    const speed = SET_SPEED;
     if (d > 1e-3) {
-      const step = Math.min(d, speed * dt);
+      const step = Math.min(d, SET_SPEED * dt);
       this.position.x += (dx / d) * step;
       this.position.z += (dz / d) * step;
       this.moveSpeed = step / dt;
@@ -186,51 +148,47 @@ export class Goalkeeper {
     }
   }
 
-  // --- shot reaction ------------------------------------------------------
-
   _maybeReact(ball) {
     if (this.reactCooldown > 0) return;
+    const s = this.side;
     const vx = ball.velocity.x;
-    if (vx < 3) return; // not driven toward our goal (which is at +X)
-    // attackers come from lower X; ignore balls already past the keeper
-    if (ball.position.x > GOAL_X || ball.position.x > this.position.x + 0.5) return;
-    const t = (GOAL_X - ball.position.x) / vx;
-    // react only once the ball is close enough that the dive meets it
+    if (vx * s < 3) return; // not driven toward our goal
+    if ((ball.position.x - this.goalX) * s > 0) return; // already past the line
+    if ((ball.position.x - this.position.x) * s > 0.5) return; // already past us
+    const t = (this.goalX - ball.position.x) / vx;
     if (t <= 0 || t > 0.85) return;
 
     const predZ = ball.position.z + ball.velocity.z * t;
     const predY = ball.position.y + ball.velocity.y * t - 0.5 * G * t * t;
-    if (Math.abs(predZ) > GOAL_HALF + 0.7) return; // going wide — stay put (smart)
+    if (Math.abs(predZ) > GOAL_HALF + 0.7) return; // going wide — stay put
 
     const need = predZ - this.position.z;
-    if (predY > 1.35 && Math.abs(need) < 1.3) {
-      this._launch('jump', 0, predZ);
-    } else if (Math.abs(need) > 0.55 && Math.abs(need) < DIVE_RANGE) {
-      this._launch(need > 0 ? 'divePos' : 'diveNeg', Math.sign(need), predZ);
-    }
-    // otherwise it's reachable standing — positioning already tracks predZ-ish
+    if (predY > 1.35 && Math.abs(need) < 1.3) this._launch('jump', predZ);
+    else if (Math.abs(need) > 0.55 && Math.abs(need) < DIVE_RANGE) this._launch('dive', predZ);
   }
 
-  _launch(kind, side, predZ) {
+  _diveClipFor(zSign) {
+    return zSign * this.side > 0 ? 'divePos' : 'diveNeg';
+  }
+
+  _launch(kind, predZ) {
     this.stateT = 0;
     this.saved = false;
+    const s = this.side;
     if (kind === 'jump') {
       this.state = 'jump';
       this.diveDur = 0.8;
-      // a real leap: apex (~0.42s) lines up with the clip's overhead reach,
-      // drifting toward the ball if it's a touch off-centre
       const drift = THREE.MathUtils.clamp((predZ - this.position.z) * 1.5, -3, 3);
-      this.diveVel.set(-0.8, 5.0, drift);
+      this.diveVel.set(-s * 0.8, 5.0, drift);
       this.activeDive = 'jump';
       this.actions.jump.reset();
     } else {
       this.state = 'dive';
-      this.diveDur = 0.95; // stay extended long enough to meet the ball
-      // launch to roughly reach the predicted spot over the dive (don't overshoot)
+      this.diveDur = 0.95;
       const need = predZ - this.position.z;
-      this.diveVel.set(-1.2, 2.6, THREE.MathUtils.clamp(need * 2.2, -7, 7));
-      this.activeDive = kind;
-      this.actions[kind].reset();
+      this.diveVel.set(-s * 1.2, 2.6, THREE.MathUtils.clamp(need * 2.2, -7, 7));
+      this.activeDive = this._diveClipFor(Math.sign(need) || 1);
+      this.actions[this.activeDive].reset();
     }
   }
 
@@ -263,19 +221,9 @@ export class Goalkeeper {
     this.position.y = 0;
   }
 
-  // --- saves / possession -------------------------------------------------
-
-  // Distance from point `pt` to the ball's swept segment this frame.
   _ballSegDist(pt, ball, dt) {
-    const ax = ball.position.x;
-    const ay = ball.position.y;
-    const az = ball.position.z;
-    const bx = ax + ball.velocity.x * dt;
-    const by = ay + ball.velocity.y * dt;
-    const bz = az + ball.velocity.z * dt;
-    const dx = bx - ax;
-    const dy = by - ay;
-    const dz = bz - az;
+    const ax = ball.position.x, ay = ball.position.y, az = ball.position.z;
+    const dx = ball.velocity.x * dt, dy = ball.velocity.y * dt, dz = ball.velocity.z * dt;
     const len2 = dx * dx + dy * dy + dz * dz;
     let tt = 0;
     if (len2 > 1e-9) {
@@ -285,12 +233,9 @@ export class Goalkeeper {
     return Math.hypot(pt.x - (ax + dx * tt), pt.y - (ay + dy * tt), pt.z - (az + dz * tt));
   }
 
-  // Horizontal (XZ) distance from a point to the ball's swept path this frame.
   _ballSegDistXZ(px, pz, ball, dt) {
-    const ax = ball.position.x;
-    const az = ball.position.z;
-    const dx = ball.velocity.x * dt;
-    const dz = ball.velocity.z * dt;
+    const ax = ball.position.x, az = ball.position.z;
+    const dx = ball.velocity.x * dt, dz = ball.velocity.z * dt;
     const len2 = dx * dx + dz * dz;
     let tt = 0;
     if (len2 > 1e-9) {
@@ -301,25 +246,40 @@ export class Goalkeeper {
   }
 
   _tryHandSave(ball, result, dt = 1 / 60) {
-    // only threats in front of the goal
-    if (ball.position.x > GOAL_X + 0.4 || ball.position.x < this.position.x - 2.5) return;
+    const s = this.side;
+    if ((ball.position.x - this.goalX) * s > 0.4) return; // behind the line
+    if ((ball.position.x - this.position.x) * s < -2.5) return; // too far in front
     this.bones.handL.getWorldPosition(this._h1);
     this.bones.handR.getWorldPosition(this._h2);
     this.bones.chest.getWorldPosition(this._c);
     const dHands = Math.min(this._ballSegDist(this._h1, ball, dt), this._ballSegDist(this._h2, ball, dt));
     const dBody = this._ballSegDist(this._c, ball, dt);
-    // the torso / legs block a ball that reaches the keeper at any height
     const dBlock = this._ballSegDistXZ(this.position.x, this.position.z, ball, dt);
     const blocked = dBlock < 0.48 && ball.position.y < 1.95;
     if (dHands < REACH || dBody < REACH * 0.85 || blocked) {
       this.saved = true;
       result.saved = true;
-      const speed = ball.velocity.length();
-      if (speed < 16) {
-        this._catch(ball);
-      } else {
-        this._parry(ball);
+      if (ball.velocity.length() < 16) this._catch(ball);
+      else this._parry(ball);
+    }
+  }
+
+  _blockBody(ball) {
+    if (ball.position.y > 2.0) return;
+    const minD = BALL.RADIUS + 0.4;
+    const dx = ball.position.x - this.position.x;
+    const dz = ball.position.z - this.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < minD && d > 1e-4) {
+      const nx = dx / d, nz = dz / d;
+      ball.position.x = this.position.x + nx * minD;
+      ball.position.z = this.position.z + nz * minD;
+      const vn = ball.velocity.x * nx + ball.velocity.z * nz;
+      if (vn < 0) {
+        ball.velocity.x -= 1.6 * vn * nx;
+        ball.velocity.z -= 1.6 * vn * nz;
       }
+      ball.syncMesh();
     }
   }
 
@@ -334,11 +294,12 @@ export class Goalkeeper {
   }
 
   _parry(ball) {
-    // push the ball back into play, away from goal and out to the nearer side
-    const side = this._c.z >= ball.position.z ? -1 : 1;
-    ball.velocity.set(-Math.abs(ball.velocity.x) * 0.45 - 3, 3.5, side * 4 + ball.velocity.z * 0.2);
+    const s = this.side;
+    const zside = this._c.z >= ball.position.z ? -1 : 1;
+    ball.velocity.set(-s * (Math.abs(ball.velocity.x) * 0.45 + 3), 3.5, zside * 4 + ball.velocity.z * 0.2);
     ball.angularVelocity.set(0, 0, 0);
-    ball.position.x = Math.min(ball.position.x, GOAL_X - BALL.RADIUS - 0.05);
+    if (s > 0) ball.position.x = Math.min(ball.position.x, this.goalX - BALL.RADIUS - 0.05);
+    else ball.position.x = Math.max(ball.position.x, this.goalX + BALL.RADIUS + 0.05);
   }
 
   _smother(ball, result) {
@@ -351,20 +312,17 @@ export class Goalkeeper {
   }
 
   _holdBall(ball) {
-    // tuck the ball in front of the keeper (it faces −X)
-    ball.position.set(this.position.x - 0.32, 0.75, this.position.z);
+    ball.position.set(this.position.x - this.side * 0.32, 0.75, this.position.z);
     ball.velocity.set(0, 0, 0);
     ball.syncMesh();
   }
 
   _punt(ball) {
-    ball.position.set(this.position.x - 0.4, 0.6, this.position.z);
-    ball.velocity.set(-16, 7, (Math.random() - 0.5) * 6);
+    ball.position.set(this.position.x - this.side * 0.4, 0.6, this.position.z);
+    ball.velocity.set(-this.side * 16, 7, (Math.random() - 0.5) * 6);
     ball.angularVelocity.set(0, 0, 0);
     ball.syncMesh();
   }
-
-  // --- animation blend ----------------------------------------------------
 
   _updateAnimation(dt) {
     const w = { idle: 0, shuffle: 0, divePos: 0, diveNeg: 0, jump: 0 };
@@ -375,7 +333,6 @@ export class Goalkeeper {
       w.idle = 1 - sh;
       w.shuffle = sh;
     } else {
-      // recover — blend the clamped dive/jump pose back to the ready stance
       w.idle = 1;
     }
     const kk = 1 - Math.exp(-16 * dt);

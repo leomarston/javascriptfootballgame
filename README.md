@@ -60,16 +60,19 @@ every asset generated procedurally in code.
   to a portable **glTF asset** (`src/assets/player.glb`) you can open in Blender
   or Unity (see *Baking the player*).
 
-### Teams, control & AI
-- **HOME** fields two outfielders (you control one at a time) attacking the +X
-  goal; **AWAY** fields a defender and a keeper.
+### Teams, formations & AI
+- Full **11‑v‑11** — two **4‑4‑2** sides (HOME red attacking +X, AWAY blue),
+  each a keeper + 4 defenders + 4 midfielders + 2 forwards. Every player has a
+  **name** and a set **position** (see `formations.js`).
+- **Team shape, not a swarm**: off‑ball players hold an **elastic formation
+  slot** — they follow the ball partially (line height + lateral compactness),
+  **push up** in possession and **drop** when defending — so the team keeps its
+  shape. Exactly **one player presses** the ball; one teammate offers support;
+  an AI carrier dribbles, passes or shoots.
 - **Auto‑switching control**: you drive the HOME ball carrier; a pass switches you
-  to the receiver; when AWAY has the ball you take over the HOME player nearest it.
-  A yellow **ring** marks the player you control; an auto‑switch holds for at least
-  a second so it doesn't flicker, and **Q** switches manually any time.
-- **Teammate AI** makes supporting runs, finds space and breaks into the box.
-- **Defender AI** jockeys goal‑side of the carrier, closes down, and times
-  standing tackles or slides to win the ball, then clears upfield.
+  to the receiver; when defending you take over the HOME player nearest the ball.
+  A yellow **ring** marks your player (its name shows bottom‑left); an auto‑switch
+  holds for at least a second so it doesn't flicker, and **Q** switches manually.
 
 ### The goalkeeper (smart AI)
 - A keeper for the away side on the same rig (teal kit + gloves) with its own
@@ -166,7 +169,8 @@ src/
 │  ├─ Gameplay.js          # match engine: control, possession, actions, AI
 │  ├─ CameraRig.js         # broadcast / follow / aerial / orbit
 │  ├─ FieldPlayer.js       # kit-configurable outfielder (loco + tackle/slide)
-│  ├─ Goalkeeper.js        # keeper rig + smart AI (position / dive / save)
+│  ├─ Goalkeeper.js        # keeper rig + smart AI (defends either goal)
+│  ├─ formations.js        # 4-4-2 team sheets: names, positions, base coords
 │  └─ player/
 │     ├─ PlayerRig.js              # skeleton + skinned mesh (kit-configurable)
 │     ├─ PlayerAnimations.js       # authored idle / walk / run / tackle / slide

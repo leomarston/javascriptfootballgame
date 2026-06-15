@@ -99,6 +99,22 @@ body {
   background: rgba(0, 0, 0, 0.4);
 }
 
+/* ---------- controlled-player tag ---------- */
+.playertag {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--txt);
+  background: var(--panel);
+  border: 1px solid var(--panel-brd);
+  border-radius: 9px;
+  backdrop-filter: blur(10px);
+}
+
 /* ---------- goal banner ---------- */
 .goal-banner {
   position: absolute;

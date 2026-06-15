@@ -25,7 +25,7 @@ await page.evaluate(() => { const a = window.__APP; a.renderer.setAnimationLoop(
 // ---- pose screenshots ----
 async function pose(file, clip, t, cam, target) {
   await page.evaluate(({ clip, t, cam, target }) => {
-    const a = window.__APP, k = a.keeper;
+    const a = window.__APP, k = a.awayKeeper;
     k.object.position.set(0, 0, 0);
     k.object.rotation.y = 0; // face +Z toward the camera for inspection
     for (const n of ['idle', 'shuffle', 'divePos', 'diveNeg', 'jump']) {
@@ -49,7 +49,7 @@ await pose('keeper_jump', 'jump', 0.42, [1.4, 1.6, 3.2], [0, 1.3, 0]);
 
 // ---- behaviour tests ----
 const res = await page.evaluate(() => {
-  const a = window.__APP, g = a.gameplay, k = a.keeper, b = a.ball;
+  const a = window.__APP, g = a.gameplay, k = a.awayKeeper, b = a.ball;
   const DT = 1 / 60;
   const out = {};
 
