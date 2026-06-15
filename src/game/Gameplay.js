@@ -37,6 +37,10 @@ const ASSIST_MAX = 0.55;
 const ASSIST_ALIGN = 0.25; // must be moving within ~75° of the ball
 const CONTROLLED_CAPTURE_BONUS = 0.18;
 const CAM_LEAN = 7; // camera centre may lean this far from the ball (keeps it in frame)
+const AIM_RATE = 1.1; // radians/sec the set-piece aim swings with left/right
+const SP_POWER_MIN = 8;
+const SP_POWER_MAX = 27;
+const SP_LOFT_MAX = 9; // extra vertical launch at full charge
 
 // formation elasticity
 const LINE_FACTOR = 0.32; // how much each player follows the ball up/down the pitch
@@ -79,6 +83,7 @@ export class Gameplay {
     this.shotCam = 0; // briefly follow the ball after a shot
     this.kickoffT = 0; // brief lined-up pause before play starts
     this.kickoffTaker = null;
+    this.setPiece = null; // active corner / goal kick
     this.switchRank = 0; // how far down the proximity list Q has stepped
     this.lastSwitchT = 0;
     this.presser = {};
@@ -117,6 +122,13 @@ export class Gameplay {
 
   actionDown(k) {
     if (this.celebrateT > 0 || this.kickoffT > 0) return;
+    if (this.setPiece) {
+      if (this.setPiece.userControlled && (k === ' ' || k === 'j')) {
+        this.setPiece.charging = true;
+        this.setPiece.charge = 0;
+      }
+      return;
+    }
     const me = this.controlledPlayer();
     if (me.busy) return;
     if (this.ballOwner === me) {
@@ -130,6 +142,12 @@ export class Gameplay {
   }
 
   actionUp(k) {
+    if (this.setPiece) {
+      if (this.setPiece.userControlled && (k === ' ' || k === 'j') && this.setPiece.charging) {
+        this.takeSetPiece(this.setPiece.aim, this.setPiece.charge);
+      }
+      return;
+    }
     const me = this.controlledPlayer();
     if (k === ' ' && this.passCharging) {
       this.passCharging = false;
@@ -222,6 +240,11 @@ export class Gameplay {
       return;
     }
 
+    if (this.setPiece) {
+      this.updateSetPiece(dt);
+      return;
+    }
+
     if (this.celebrateT > 0) {
       this.celebrateT -= dt;
       for (const a of this.field) a.update(dt, null, false);
@@ -274,6 +297,10 @@ export class Gameplay {
       }
       if (Math.abs(this.ball.position.z) > HW) { // out over a touchline
         this.throwIn(this.lastTouchTeam);
+        return;
+      }
+      if (Math.abs(this.ball.position.x) > HL) { // out over a goal line
+        this.goalLineOut();
         return;
       }
       this.resolveLoose();
@@ -497,8 +524,8 @@ export class Gameplay {
       this.throwIn(owner.team);
       return;
     }
-    if (Math.abs(pos.x) > HL + OUT_MARGIN) { // over the goal line (corner/goal kick TBD)
-      this.loseOut(owner);
+    if (Math.abs(pos.x) > HL) { // dribbled out over a goal line
+      this.goalLineOut();
       return;
     }
     this.ball.angularVelocity.set(vel.z / r, 0, -vel.x / r);
@@ -673,11 +700,32 @@ export class Gameplay {
     return this._camTarget;
   }
 
-  // Charge state for the on-screen power bar while passing / shooting.
+  // Charge state for the on-screen power bar while passing / shooting / set-piece.
   chargeInfo() {
+    if (this.setPiece && this.setPiece.charging) return { active: true, value: this.setPiece.charge, kind: 'shot' };
     if (this.shotCharging) return { active: true, value: this.shotCharge, kind: 'shot' };
     if (this.passCharging) return { active: true, value: this.passCharge, kind: 'pass' };
     return { active: false, value: 0, kind: '' };
+  }
+
+  keeperOf(team) {
+    return team === 'HOME' ? this.homeKeeper : this.awayKeeper;
+  }
+
+  // The player to follow / ring / name — the set-piece taker if you're taking one.
+  activePlayer() {
+    if (this.setPiece && this.setPiece.userControlled) return this.setPiece.taker;
+    return this.controlledPlayer();
+  }
+
+  setPieceActive() {
+    return this.setPiece;
+  }
+
+  // Behind-the-taker camera info while taking a set-piece (aim direction included).
+  setPieceCamInfo() {
+    const sp = this.setPiece;
+    return { pos: sp.taker.position, dx: Math.sin(sp.aim), dz: Math.cos(sp.aim) };
   }
 
   cross(me) {
@@ -777,7 +825,131 @@ export class Gameplay {
 
   // --- match flow ---------------------------------------------------------
 
+  // --- set pieces (corner / goal kick) ------------------------------------
+
+  // A ball out over a goal line: corner if the defenders put it out, else goal kick.
+  goalLineOut() {
+    const side = this.ball.position.x >= 0 ? 1 : -1; // which goal line it crossed
+    const defendingTeam = side > 0 ? 'AWAY' : 'HOME'; // AWAY defends +X, HOME defends -X
+    if (this.lastTouchTeam === defendingTeam) {
+      const cz = this.ball.position.z >= 0 ? 1 : -1;
+      this.startCorner(defendingTeam === 'HOME' ? 'AWAY' : 'HOME', side, cz);
+    } else {
+      this.startGoalKick(defendingTeam, side);
+    }
+  }
+
+  startGoalKick(team, side) {
+    const keeper = this.keeperOf(team);
+    this.placeGoalKick(team, side);
+    keeper.reset();
+    keeper.position.set(side * (HL - 5.5), 0, 0); // out of the goal area to take it
+    const aim = Math.atan2(-side, 0); // face up the pitch, away from our own goal
+    this.setPiece = {
+      type: 'goalkick', team, taker: keeper, aim, aimMin: aim - 1.0, aimMax: aim + 1.0,
+      charge: 0, charging: false, userControlled: team === 'HOME', t: 0
+    };
+    this.ballOwner = null;
+    this.positionSetPieceBall();
+  }
+
+  startCorner(team, side, cz) {
+    const gx = side * HL;
+    const att = this.teamArr(team);
+    const taker = att[8]; // a forward takes the corner
+    this.placeCorner(team, side, cz, taker);
+    taker.reset(side * (HL - 0.5), cz * (HW - 0.5), 0);
+    const aim = Math.atan2(gx - taker.position.x, 0 - taker.position.z); // toward the goal mouth
+    taker.heading = aim;
+    this.setPiece = {
+      type: 'corner', team, taker, aim, aimMin: aim - 0.9, aimMax: aim + 0.9,
+      charge: 0, charging: false, userControlled: team === 'HOME', t: 0
+    };
+    this.ballOwner = null;
+    this.positionSetPieceBall();
+  }
+
+  placeGoalKick(team, side) {
+    const gx = side * HL;
+    const def = this.teamArr(team);
+    const att = this.teamArr(team === 'HOME' ? 'AWAY' : 'HOME');
+    const faceUp = Math.atan2(-side, 0);
+    const faceGoal = Math.atan2(side, 0);
+    def.forEach((p, i) => {
+      const row = Math.floor(i / 4);
+      p.reset(gx - side * (13 + row * 7), -22 + (i % 5) * 11, faceUp);
+    });
+    att.forEach((p, i) => {
+      p.reset(gx - side * (24 + (i % 3) * 5), -20 + (i % 5) * 10, faceGoal);
+    });
+    this.keeperOf(team === 'HOME' ? 'AWAY' : 'HOME').reset();
+  }
+
+  placeCorner(team, side, cz, taker) {
+    const gx = side * HL;
+    const att = this.teamArr(team);
+    const def = this.teamArr(team === 'HOME' ? 'AWAY' : 'HOME');
+    const faceGoal = Math.atan2(side, 0);
+    const faceOut = Math.atan2(-side, 0);
+    att.filter((p) => p !== taker).forEach((p, i) => {
+      p.reset(gx - side * (5 + (i % 3) * 3), -10 + (i * 4) % 20, faceGoal);
+    });
+    def.forEach((p, i) => {
+      p.reset(gx - side * (3 + (i % 3) * 2.5), -11 + (i * 3) % 22, faceOut);
+    });
+    this.keeperOf(team).reset();
+    this.keeperOf(team === 'HOME' ? 'AWAY' : 'HOME').reset();
+  }
+
+  positionSetPieceBall() {
+    const sp = this.setPiece;
+    const dx = Math.sin(sp.aim);
+    const dz = Math.cos(sp.aim);
+    this.ball.position.set(sp.taker.position.x + dx * 0.45, BALL.RADIUS, sp.taker.position.z + dz * 0.45);
+    this.ball.velocity.set(0, 0, 0);
+    this.ball.angularVelocity.set(0, 0, 0);
+    this.ball.syncMesh();
+  }
+
+  updateSetPiece(dt) {
+    const sp = this.setPiece;
+    sp.t += dt;
+    if (sp.userControlled) {
+      if (this.keys.has('a') || this.keys.has('arrowleft')) sp.aim += AIM_RATE * dt;
+      if (this.keys.has('d') || this.keys.has('arrowright')) sp.aim -= AIM_RATE * dt;
+      sp.aim = THREE.MathUtils.clamp(sp.aim, sp.aimMin, sp.aimMax);
+      if (sp.charging) sp.charge = Math.min(1, sp.charge + dt / 0.85);
+    } else if (sp.t > 1.2) {
+      this.takeSetPiece(sp.aim, 0.6); // AI takes it
+      return;
+    }
+    // taker faces the aim; ball sits at the kicking spot
+    sp.taker.heading = sp.aim;
+    if (sp.taker.roleType === 'GK') sp.taker.object.rotation.y = sp.aim;
+    this.positionSetPieceBall();
+    // advance everyone's mixers (held in their set-piece spots)
+    for (const a of this.field) if (a !== sp.taker) a.update(dt, null, false);
+    for (const k of this.keepers) if (k !== sp.taker) k.update(dt, this.ball, 'own');
+    if (sp.taker.roleType === 'GK') sp.taker.mixer.update(dt);
+    else sp.taker.update(dt, null, false);
+  }
+
+  takeSetPiece(aim, charge) {
+    const sp = this.setPiece;
+    const power = THREE.MathUtils.lerp(SP_POWER_MIN, SP_POWER_MAX, charge);
+    const vy = 1 + charge * SP_LOFT_MAX; // strength sets both pace and height
+    this.lastTouchTeam = sp.team;
+    this.ballOwner = null;
+    this.kickCooldown = KICK_COOLDOWN;
+    sp.taker.captureCooldown = KICK_COOLDOWN;
+    this.ball.velocity.set(Math.sin(aim) * power, vy, Math.cos(aim) * power);
+    this.ball.position.y = Math.max(this.ball.position.y, BALL.RADIUS);
+    this.setPiece = null;
+    this.switchLock = 0; // snap back to normal control + camera
+  }
+
   kickoff() {
+    this.setPiece = null;
     this.ball.reset(0, 0);
     for (const a of this.field) {
       a.reset(a.homePos.x, a.homePos.z, ATTACK_SIGN[a.team] > 0 ? Math.PI / 2 : -Math.PI / 2);

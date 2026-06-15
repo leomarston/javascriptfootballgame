@@ -104,9 +104,13 @@ every asset generated procedurally in code.
   and swings onto the ball after a shot.
 - **Tackles and slides** win the ball off a carrier (no fouls): a standing tackle
   takes possession, a slide knocks it loose.
-- **Throw-ins**: a ball out over a touchline restarts as a throw-in for the team
-  that didn't touch it last (goal-line restarts are coming next). After a shot
-  the camera follows the **ball** so you can watch the effort.
+- **Restarts**: out over a touchline is a **throw-in**; out over a goal line is a
+  **corner** (defenders put it out) or a **goal kick** (attackers put it out),
+  awarded by who touched it last, with the teams repositioned for the set-piece.
+  You take HOME's set-pieces from a **behind-the-taker camera** (the goalkeeper
+  takes goal kicks) — **left/right aims**, and **holding the kick sets the power
+  and height**; it snaps back to the normal camera the instant you kick. AWAY's
+  set-pieces are taken by the AI. After a shot the camera follows the **ball**.
 - Full arcade **ball physics**: gravity, turf bounce, rolling friction with
   matching spin, aerodynamic drag, reflective walls and **goal‑post collisions**.
 - **Goal‑line detection**, live scoreboard with match clock, goal celebration

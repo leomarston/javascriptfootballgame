@@ -165,8 +165,14 @@ class App {
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
     this.gameplay.update(dt);
-    const ctrl = this.gameplay.controlledPlayer();
-    this.rig.update(dt, this.gameplay.cameraTarget()); // follows the ball after a shot
+    const ctrl = this.gameplay.activePlayer();
+    const sp = this.gameplay.setPieceActive();
+    if (sp && sp.userControlled) {
+      const spc = this.gameplay.setPieceCamInfo(); // behind the taker, looking along the aim
+      this.rig.behind(dt, spc.pos, spc.dx, spc.dz);
+    } else {
+      this.rig.update(dt, this.gameplay.cameraTarget()); // follows the ball after a shot
+    }
     this.selRing.position.set(ctrl.position.x, 0.04, ctrl.position.z);
     this.hud.setPlayer(TEAMS.HOME.short, ctrl.name, ctrl.label);
 

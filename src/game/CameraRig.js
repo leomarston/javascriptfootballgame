@@ -79,6 +79,16 @@ export class CameraRig {
     this.camera.lookAt(this._curTarget);
   }
 
+  // A behind-the-taker view looking out along the aim, used for set-pieces.
+  behind(dt, pos, dx, dz) {
+    this._desiredPos.set(pos.x - dx * 7, 4.6, pos.z - dz * 7);
+    this._desiredTarget.set(pos.x + dx * 9, 1.2, pos.z + dz * 9);
+    const k = 1 - Math.pow(0.001, dt);
+    this.camera.position.lerp(this._desiredPos, k);
+    this._curTarget.lerp(this._desiredTarget, k);
+    this.camera.lookAt(this._curTarget);
+  }
+
   setAspect(aspect) {
     this.camera.aspect = aspect;
     this.camera.updateProjectionMatrix();
