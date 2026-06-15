@@ -359,12 +359,12 @@ export class Gameplay {
     const dx = goalX - this.ball.position.x;
     const dz = aimZ - this.ball.position.z;
     const dist = Math.hypot(dx, dz) || 1;
-    const power = 20;
+    const power = 30;
     this.releaseBall(a, (dx / dist) * power, power * 0.12, (dz / dist) * power);
   }
 
   aiPass(a, mate) {
-    const power = 14;
+    const power = 21;
     const lead = this.horiz(a.position, mate.position) / power;
     const tx = mate.position.x + mate.velocity.x * lead;
     const tz = mate.position.z + mate.velocity.z * lead;
@@ -492,7 +492,7 @@ export class Gameplay {
       }
     }
     if (!mate) return;
-    const power = THREE.MathUtils.lerp(7, 18, charge);
+    const power = THREE.MathUtils.lerp(10.5, 27, charge);
     const lead = this.horiz(this.ball.position, mate.position) / Math.max(6, power);
     const tx = mate.position.x + mate.velocity.x * lead;
     const tz = mate.position.z + mate.velocity.z * lead;
@@ -508,7 +508,7 @@ export class Gameplay {
     const dx = HOME_ATTACK_X - this.ball.position.x;
     const dz = aimZ - this.ball.position.z;
     const dist = Math.hypot(dx, dz) || 1;
-    const power = THREE.MathUtils.lerp(9, 23, charge);
+    const power = THREE.MathUtils.lerp(13.5, 34.5, charge);
     this.releaseBall(me, (dx / dist) * power, power * 0.12, (dz / dist) * power);
   }
 
