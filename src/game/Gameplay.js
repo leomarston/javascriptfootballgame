@@ -30,6 +30,12 @@ const SPRINT_REF = 7;
 const BODY_RADIUS = 0.32;
 const OUT_MARGIN = 0.25;
 const GRAVITY = 12;
+// gentle assist that steers YOUR player onto a loose ball (only when you're
+// already heading for it) so imprecise input doesn't just miss it.
+const ASSIST_RADIUS = 4.0;
+const ASSIST_MAX = 0.55;
+const ASSIST_ALIGN = 0.25; // must be moving within ~75° of the ball
+const CONTROLLED_CAPTURE_BONUS = 0.18;
 
 // formation elasticity
 const LINE_FACTOR = 0.32; // how much each player follows the ball up/down the pitch
@@ -77,6 +83,7 @@ export class Gameplay {
     this._dir = new THREE.Vector3();
     this._up = new THREE.Vector3(0, 1, 0);
     this._t = new THREE.Vector3();
+    this._assist = new THREE.Vector3();
 
     this.bind();
     this.kickoff();
@@ -148,6 +155,28 @@ export class Gameplay {
     return this.home[this.controlled];
   }
 
+  // Subtly bend the player's run toward a nearby loose ball — but only while
+  // they're already moving roughly toward it, and stronger the closer they get,
+  // so it reads as "good control" rather than the game taking over.
+  _assistDir(me, dir) {
+    if (this.ballOwner !== null || me.busy || dir.lengthSq() < 1e-4) return dir;
+    const bx = this.ball.position.x - me.position.x;
+    const bz = this.ball.position.z - me.position.z;
+    const dist = Math.hypot(bx, bz);
+    if (dist > ASSIST_RADIUS || dist < 0.4 || this.ball.position.y > 0.6) return dir;
+    const tbx = bx / dist;
+    const tbz = bz / dist;
+    const dl = Math.hypot(dir.x, dir.z) || 1;
+    const mx = dir.x / dl;
+    const mz = dir.z / dl;
+    const align = mx * tbx + mz * tbz; // are they heading toward the ball?
+    if (align < ASSIST_ALIGN) return dir; // clearly going elsewhere — leave them
+    const prox = THREE.MathUtils.clamp(1 - dist / ASSIST_RADIUS, 0, 1);
+    const alignF = THREE.MathUtils.clamp((align - ASSIST_ALIGN) / (1 - ASSIST_ALIGN), 0, 1);
+    const k = Math.min(ASSIST_MAX, prox * alignF);
+    return this._assist.set(mx * (1 - k) + tbx * k, 0, mz * (1 - k) + tbz * k);
+  }
+
   inputDir() {
     this.rig.camera.getWorldDirection(this._fwd);
     this._fwd.y = 0;
@@ -190,7 +219,7 @@ export class Gameplay {
       this.shotCharge = 0;
     }
     for (const a of this.field) a.carrying = a === this.ballOwner; // 15% slower on the ball
-    me.update(dt, this.inputDir(), this.keys.has('shift'));
+    me.update(dt, this._assistDir(me, this.inputDir()), this.keys.has('shift'));
     for (const a of this.field) {
       if (a === me) continue;
       const intent = this.aiIntent(a);
@@ -447,12 +476,14 @@ export class Gameplay {
 
   resolveLoose() {
     for (const a of this.field) this.bodyCollide(a);
+    const ctrl = this.controlledPlayer();
     let best = null;
     let bd = Infinity;
     for (const a of this.field) {
       if (a.captureCooldown > 0 || a.busy) continue;
+      const cap = a === ctrl ? CAPTURE_RADIUS + CONTROLLED_CAPTURE_BONUS : CAPTURE_RADIUS;
       const d = this.horiz(a.position, this.ball.position);
-      if (d < CAPTURE_RADIUS && this.ball.position.y < CAPTURE_MAX_Y && d < bd) { best = a; bd = d; }
+      if (d < cap && this.ball.position.y < CAPTURE_MAX_Y && d < bd) { best = a; bd = d; }
     }
     if (best) this.gainPossession(best);
   }
