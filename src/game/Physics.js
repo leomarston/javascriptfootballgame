@@ -94,6 +94,9 @@ export class Physics {
     this.collidePosts(ball);
     this.collideCrossbars(ball);
 
+    // --- net (catches the ball inside the goal) --------------------------
+    this.collideNets(ball);
+
     // --- perimeter walls --------------------------------------------------
     // skip the X-wall reflection while the ball is inside a goal mouth
     const inMouth = Math.abs(pos.z) < hw && underBar;
@@ -138,6 +141,46 @@ export class Physics {
         const vn = ball.velocity.x * nx + ball.velocity.z * nz;
         ball.velocity.x -= (1 + WALL_REST) * vn * nx;
         ball.velocity.z -= (1 + WALL_REST) * vn * nz;
+      }
+    }
+  }
+
+  // Once the ball is inside a goal, the net catches it: heavy damping plus
+  // soft back / side / top planes so it decelerates and settles in the net.
+  collideNets(ball) {
+    const r = BALL.RADIUS;
+    const pos = ball.position;
+    const vel = ball.velocity;
+    const hw = GOAL.WIDTH / 2;
+    const H = GOAL.HEIGHT;
+    for (const sx of [-1, 1]) {
+      const lineX = sx * FIELD.HALF_LENGTH;
+      const past = sx > 0 ? pos.x > lineX : pos.x < lineX;
+      if (!past) continue;
+      if (Math.abs(pos.z) > hw + 0.05 || pos.y > H + 0.05) continue; // outside the frame
+      // the net absorbs energy
+      vel.x *= 0.8;
+      vel.y *= 0.86;
+      vel.z *= 0.8;
+      // sloping back net (deeper at the bottom)
+      const depth = THREE.MathUtils.lerp(GOAL.DEPTH_BOTTOM, GOAL.DEPTH_TOP, THREE.MathUtils.clamp(pos.y / H, 0, 1));
+      const backX = lineX + sx * (depth - r);
+      if (sx > 0 ? pos.x > backX : pos.x < backX) {
+        pos.x = backX;
+        vel.x = -sx * Math.abs(vel.x) * 0.06;
+      }
+      // side nets
+      if (pos.z > hw - r) {
+        pos.z = hw - r;
+        vel.z = -Math.abs(vel.z) * 0.1;
+      } else if (pos.z < -(hw - r)) {
+        pos.z = -(hw - r);
+        vel.z = Math.abs(vel.z) * 0.1;
+      }
+      // roof net
+      if (pos.y > H - r) {
+        pos.y = H - r;
+        vel.y = -Math.abs(vel.y) * 0.1;
       }
     }
   }

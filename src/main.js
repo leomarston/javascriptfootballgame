@@ -94,6 +94,21 @@ class App {
     this.scene.add(this.defender.object);
     this.scene.add(this.keeper.object);
 
+    // a small ring on the pitch marking the player you currently control
+    this.selRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.42, 0.56, 40),
+      new THREE.MeshBasicMaterial({
+        color: 0xffe14d,
+        transparent: true,
+        opacity: 0.85,
+        side: THREE.DoubleSide,
+        depthWrite: false
+      })
+    );
+    this.selRing.rotation.x = -Math.PI / 2;
+    this.selRing.renderOrder = 4;
+    this.scene.add(this.selRing);
+
     this.rig = new CameraRig(this.renderer.domElement, innerWidth / innerHeight);
     this.postfx = new PostFX(this.renderer, this.scene, this.rig.camera);
     this.gameplay = new Gameplay(
@@ -145,7 +160,9 @@ class App {
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
     this.gameplay.update(dt);
-    this.rig.update(dt, this.gameplay.controlledPlayer());
+    const ctrl = this.gameplay.controlledPlayer();
+    this.rig.update(dt, ctrl);
+    this.selRing.position.set(ctrl.position.x, 0.04, ctrl.position.z);
     this.stadium.update(dt);
     this.hud.update(dt);
     this.postfx.render(this.rig.camera);

@@ -48,6 +48,11 @@ export class Gameplay {
     this.passTarget = null;
     this.passTimer = 0;
     this.defenderClear = 0;
+    this.switchLock = 0; // keep a selected player for >= 1s before auto-switching
+    this.passCharging = false;
+    this.passCharge = 0;
+    this.shotCharging = false;
+    this.shotCharge = 0;
 
     this._fwd = new THREE.Vector3();
     this._right = new THREE.Vector3();
@@ -67,23 +72,51 @@ export class Gameplay {
       this.keys.add(k);
       if (e.repeat) return;
       if (k === 'r') this.kickoff();
-      else this.onAction(k);
+      else if (k === 'q') this.manualSwitch();
+      else this.actionDown(k);
     });
-    addEventListener('keyup', (e) => this.keys.delete(e.key.toLowerCase()));
+    addEventListener('keyup', (e) => {
+      const k = e.key.toLowerCase();
+      this.keys.delete(k);
+      this.actionUp(k);
+    });
   }
 
-  onAction(k) {
+  // Space/J start charging (with the ball); Space/X are instant when defending.
+  actionDown(k) {
     if (this.celebrateT > 0) return;
     const me = this.controlledPlayer();
     if (me.busy) return;
     if (this.ballOwner === me) {
-      if (k === ' ') this.pass(me);
-      else if (k === 'j') this.shoot(me);
+      if (k === ' ') { this.passCharging = true; this.passCharge = 0; }
+      else if (k === 'j') { this.shotCharging = true; this.shotCharge = 0; }
       else if (k === 'k') this.cross(me);
     } else {
       if (k === ' ') me.startTackle();
       else if (k === 'x') me.startSlide();
     }
+  }
+
+  actionUp(k) {
+    const me = this.controlledPlayer();
+    if (k === ' ' && this.passCharging) {
+      this.passCharging = false;
+      if (this.ballOwner === me && !me.busy) this.pass(me, this.passCharge);
+      this.passCharge = 0;
+    } else if (k === 'j' && this.shotCharging) {
+      this.shotCharging = false;
+      if (this.ballOwner === me && !me.busy) this.shoot(me, this.shotCharge);
+      this.shotCharge = 0;
+    }
+  }
+
+  // Cycle to the other HOME player and hold the selection.
+  manualSwitch() {
+    if (this.celebrateT > 0) return;
+    this.controlled = 1 - this.controlled;
+    this.switchLock = 1.0;
+    this.passTarget = null;
+    this.passTimer = 0;
   }
 
   controlledPlayer() {
@@ -110,6 +143,8 @@ export class Gameplay {
   update(dt) {
     this.kickCooldown = Math.max(0, this.kickCooldown - dt);
     if (this.passTimer > 0) this.passTimer = Math.max(0, this.passTimer - dt);
+    if (this.passCharging) this.passCharge = Math.min(1, this.passCharge + dt / 0.6);
+    if (this.shotCharging) this.shotCharge = Math.min(1, this.shotCharge + dt / 0.75);
 
     if (this.celebrateT > 0) {
       this.celebrateT -= dt;
@@ -120,10 +155,16 @@ export class Gameplay {
       return;
     }
 
-    this.resolveControl();
+    this.resolveControl(dt);
 
     // drive the controlled player from input, everyone else from AI
     const me = this.controlledPlayer();
+    if ((this.passCharging || this.shotCharging) && this.ballOwner !== me) {
+      this.passCharging = false;
+      this.shotCharging = false;
+      this.passCharge = 0;
+      this.shotCharge = 0;
+    }
     me.update(dt, this.inputDir(), this.keys.has('shift'));
     for (const a of this.field) {
       if (a === me) continue;
@@ -167,14 +208,20 @@ export class Gameplay {
 
   // --- control ------------------------------------------------------------
 
-  resolveControl() {
+  resolveControl(dt) {
+    this.switchLock = Math.max(0, this.switchLock - dt);
     const owner = this.ballOwner;
     if (owner && owner.team === 'HOME') {
-      this.controlled = this.home.indexOf(owner);
+      this.controlled = this.home.indexOf(owner); // always control the carrier
     } else if (this.passTarget && this.passTimer > 0) {
       this.controlled = this.home.indexOf(this.passTarget);
-    } else {
-      this.controlled = this.nearestHomeIndex(this.ball.position);
+    } else if (this.switchLock <= 0) {
+      // defending / loose: auto-switch to the nearest, but hold it for >= 1s
+      const n = this.nearestHomeIndex(this.ball.position);
+      if (n !== this.controlled) {
+        this.controlled = n;
+        this.switchLock = 1.0;
+      }
     }
   }
 
@@ -297,26 +344,31 @@ export class Gameplay {
     this.ball.position.y = Math.max(this.ball.position.y, BALL.RADIUS);
   }
 
-  pass(me) {
+  // Charged pass (power grows with the hold, capped) that leads the receiver.
+  pass(me, charge = 0.5) {
     const mate = this.home[1 - this.home.indexOf(me)];
-    const tx = mate.position.x + mate.velocity.x * 0.25; // lead the run a touch
-    const tz = mate.position.z + mate.velocity.z * 0.25;
-    const dx = tx - this.ball.position.x;
-    const dz = tz - this.ball.position.z;
-    const dist = Math.hypot(dx, dz) || 1;
-    const power = THREE.MathUtils.clamp(dist * 1.5 + 4, 6, 24);
-    this.releaseBall(me, (dx / dist) * power, 0.6, (dz / dist) * power);
+    const power = THREE.MathUtils.lerp(7, 18, charge);
+    const bx = this.ball.position.x;
+    const bz = this.ball.position.z;
+    // lead the run by the estimated travel time so it arrives to feet
+    const lead = Math.hypot(mate.position.x - bx, mate.position.z - bz) / Math.max(6, power);
+    const tx = mate.position.x + mate.velocity.x * lead;
+    const tz = mate.position.z + mate.velocity.z * lead;
+    const dx = tx - bx;
+    const dz = tz - bz;
+    const d = Math.hypot(dx, dz) || 1;
+    this.releaseBall(me, (dx / d) * power, 0.5, (dz / d) * power);
     this.handOverTo(mate);
   }
 
-  shoot(me) {
-    // auto-aim at the corner away from the keeper
-    const aimZ = this.keeper.position.z >= 0 ? -2.6 : 2.6;
+  // Charged shot (nerfed, capped) aimed at the corner away from the keeper.
+  shoot(me, charge = 1) {
+    const aimZ = this.keeper.position.z >= 0 ? -2.4 : 2.4;
     const dx = AWAY_GOAL_X - this.ball.position.x;
     const dz = aimZ - this.ball.position.z;
     const dist = Math.hypot(dx, dz) || 1;
-    const power = THREE.MathUtils.clamp(dist * 0.9 + 14, 16, 34);
-    this.releaseBall(me, (dx / dist) * power, power * 0.14, (dz / dist) * power);
+    const power = THREE.MathUtils.lerp(9, 23, charge); // own-half shots can't carry
+    this.releaseBall(me, (dx / dist) * power, power * 0.12, (dz / dist) * power);
   }
 
   cross(me) {
@@ -478,6 +530,11 @@ export class Gameplay {
     this.controlled = 0;
     this.passTarget = null;
     this.passTimer = 0;
+    this.switchLock = 0;
+    this.passCharging = false;
+    this.shotCharging = false;
+    this.passCharge = 0;
+    this.shotCharge = 0;
     this.kickCooldown = 0.3;
     this.celebrateT = 0;
     this.setOwner(this.home[0]); // kick off with the ball at your feet

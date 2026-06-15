@@ -65,6 +65,8 @@ every asset generated procedurally in code.
   goal; **AWAY** fields a defender and a keeper.
 - **Auto‑switching control**: you drive the HOME ball carrier; a pass switches you
   to the receiver; when AWAY has the ball you take over the HOME player nearest it.
+  A yellow **ring** marks the player you control; an auto‑switch holds for at least
+  a second so it doesn't flicker, and **Q** switches manually any time.
 - **Teammate AI** makes supporting runs, finds space and breaks into the box.
 - **Defender AI** jockeys goal‑side of the carrier, closes down, and times
   standing tackles or slides to win the ball, then clears upfield.
@@ -103,10 +105,11 @@ every asset generated procedurally in code.
 | --- | --- |
 | **W A S D / Arrows** | Move (camera‑relative) |
 | **Shift** | Sprint |
-| **Space** | With the ball: **pass**. Defending: **tackle** |
-| **J** | Shoot (auto‑aimed at goal) |
+| **Space** | With the ball: **pass** (hold for power). Defending: **tackle** |
+| **J** | Shoot — hold for power, auto‑aimed (capped, so own‑half pot‑shots won't carry) |
 | **K** | Cross / lofted ball into the box |
 | **X** | Slide tackle (defending) |
+| **Q** | Switch controlled player |
 | **R** | Reset to kickoff |
 | **C** | Cycle camera (Broadcast · Follow · Aerial · Free) |
 | **N** | Toggle day / night |
