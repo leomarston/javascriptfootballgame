@@ -19,8 +19,8 @@ const SHAPE_442 = [
   { role: 'MF', label: 'LCM', x: -16, z: -8 },
   { role: 'MF', label: 'RCM', x: -16, z: 8 },
   { role: 'MF', label: 'RM', x: -13, z: 22 },
-  { role: 'FW', label: 'LS', x: 6, z: -8 },
-  { role: 'FW', label: 'RS', x: 6, z: 8 }
+  { role: 'FW', label: 'LS', x: -2, z: -8 },
+  { role: 'FW', label: 'RS', x: -2, z: 8 }
 ];
 
 const NAMES = {

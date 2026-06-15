@@ -88,7 +88,8 @@ every asset generated procedurally in code.
 
 ### Gameplay
 - **Close‑control dribbling**: run near a loose ball to **trap** it, then it
-  stays glued just ahead of the boots through turns and sprints.
+  stays glued just ahead of the boots through turns and sprints. A player on the
+  ball runs ~15% slower, so dribbling past defenders takes care.
 - Separate **pass**, **shoot** and **cross** actions: the cross floats a lofted
   ball into the **penalty area** (onto a teammate's run when one is there), and
   shots auto‑aim at the corner away from the keeper.

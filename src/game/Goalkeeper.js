@@ -20,9 +20,9 @@ import { FIELD, GOAL, BALL } from '../config.js';
 const LINE_DEPTH = 0.9;
 const GOAL_HALF = GOAL.WIDTH / 2;
 const COVER_Z = GOAL_HALF + 0.3;
-const SET_SPEED = 4.5;
-const REACH = 0.6;
-const DIVE_RANGE = 3.3;
+const SET_SPEED = 6.0; // quicker to get set
+const REACH = 0.82; // generous glove/body reach
+const DIVE_RANGE = 5.0; // can dive right into the corners
 const G = 12;
 
 const DEFAULT_KIT = {
@@ -78,7 +78,7 @@ export class Goalkeeper {
     this.holdT = 0;
     this.reactCooldown = 0;
     this.moveSpeed = 0;
-    this.diveDur = 0.95;
+    this.diveDur = 1.1;
     this.diveVel.set(0, 0, 0);
     this.position.set(this.goalX - this.side * LINE_DEPTH, 0, 0);
   }
@@ -130,11 +130,17 @@ export class Goalkeeper {
     const s = this.side;
     const onField = (ball.position.x - this.goalX) * s < 0; // ball in front of goal
     const distToGoal = Math.abs(this.goalX - ball.position.x);
-    const advance = onField && Math.abs(ball.position.z) < 12
-      ? THREE.MathUtils.clamp(1 - distToGoal / 18, 0, 1) * 1.4
+    const advance = onField && Math.abs(ball.position.z) < 16
+      ? THREE.MathUtils.clamp(1 - distToGoal / 22, 0, 1) * 1.7
       : 0;
     const targetX = this.goalX - s * (LINE_DEPTH + advance);
-    const targetZ = THREE.MathUtils.clamp(ball.position.z * 0.85, -COVER_Z, COVER_Z);
+    // stand on the ball -> goal-centre line so the shooting angle is covered,
+    // instead of drifting onto the near post
+    const denom = ball.position.x - this.goalX;
+    let targetZ = Math.abs(denom) > 0.5
+      ? ball.position.z * ((targetX - this.goalX) / denom)
+      : ball.position.z * 0.4;
+    targetZ = THREE.MathUtils.clamp(targetZ, -(GOAL_HALF - 0.2), GOAL_HALF - 0.2);
     const dx = targetX - this.position.x;
     const dz = targetZ - this.position.z;
     const d = Math.hypot(dx, dz);
@@ -156,40 +162,49 @@ export class Goalkeeper {
     if ((ball.position.x - this.goalX) * s > 0) return; // already past the line
     if ((ball.position.x - this.position.x) * s > 0.5) return; // already past us
     const t = (this.goalX - ball.position.x) / vx;
-    if (t <= 0 || t > 0.85) return;
+    if (t <= 0 || t > 0.95) return;
 
     const predZ = ball.position.z + ball.velocity.z * t;
     const predY = ball.position.y + ball.velocity.y * t - 0.5 * G * t * t;
     if (Math.abs(predZ) > GOAL_HALF + 0.7) return; // going wide — stay put
 
-    const need = predZ - this.position.z;
-    if (predY > 1.35 && Math.abs(need) < 1.3) this._launch('jump', predZ);
-    else if (Math.abs(need) > 0.55 && Math.abs(need) < DIVE_RANGE) this._launch('dive', predZ);
+    const reachNeed = predZ - this.position.z; // at the goal line, for the in-range test
+    // where the ball will actually be as it reaches the keeper's plane
+    const tArrive = Math.max(0, (this.position.x - ball.position.x) / vx);
+    const zAtKeeper = ball.position.z + ball.velocity.z * tArrive;
+    if (predY > 1.35 && Math.abs(reachNeed) < 1.4) this._launchJump(predZ);
+    else if (Math.abs(reachNeed) > 0.4 && Math.abs(reachNeed) < DIVE_RANGE) this._launchDive(zAtKeeper, tArrive);
   }
 
   _diveClipFor(zSign) {
     return zSign * this.side > 0 ? 'divePos' : 'diveNeg';
   }
 
-  _launch(kind, predZ) {
+  _launchJump(predZ) {
+    this.state = 'jump';
     this.stateT = 0;
     this.saved = false;
+    this.diveDur = 0.8;
+    const drift = THREE.MathUtils.clamp((predZ - this.position.z) * 1.5, -3, 3);
+    this.diveVel.set(-this.side * 0.8, 5.0, drift);
+    this.activeDive = 'jump';
+    this.actions.jump.reset();
+  }
+
+  // Dive so the GLOVE (which extends ~0.5 m past the body) meets the ball at the
+  // moment it reaches the keeper — timed to arrival so it doesn't overshoot.
+  _launchDive(zAtKeeper, tArrive) {
     const s = this.side;
-    if (kind === 'jump') {
-      this.state = 'jump';
-      this.diveDur = 0.8;
-      const drift = THREE.MathUtils.clamp((predZ - this.position.z) * 1.5, -3, 3);
-      this.diveVel.set(-s * 0.8, 5.0, drift);
-      this.activeDive = 'jump';
-      this.actions.jump.reset();
-    } else {
-      this.state = 'dive';
-      this.diveDur = 0.95;
-      const need = predZ - this.position.z;
-      this.diveVel.set(-s * 1.2, 2.6, THREE.MathUtils.clamp(need * 2.2, -7, 7));
-      this.activeDive = this._diveClipFor(Math.sign(need) || 1);
-      this.actions[this.activeDive].reset();
-    }
+    const diveSign = Math.sign(zAtKeeper - this.position.z) || 1;
+    const targetBodyZ = zAtKeeper - 0.5 * diveSign; // glove reach offset
+    const need = targetBodyZ - this.position.z;
+    this.state = 'dive';
+    this.stateT = 0;
+    this.saved = false;
+    this.diveDur = 1.1;
+    this.diveVel.set(-s * 1.2, 2.7, THREE.MathUtils.clamp(need / Math.max(0.26, tArrive), -11, 11));
+    this.activeDive = this._diveClipFor(diveSign);
+    this.actions[this.activeDive].reset();
   }
 
   _integrateLaunch(dt) {

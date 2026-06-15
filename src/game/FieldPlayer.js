@@ -41,6 +41,7 @@ export class FieldPlayer {
     this.velocity = new THREE.Vector3();
     this.heading = 0;
     this.captureCooldown = 0;
+    this.carrying = false; // dribbling the ball slows you down a touch
 
     this.mixer = new THREE.AnimationMixer(this.mesh);
     const clips = buildPlayerClips();
@@ -148,7 +149,8 @@ export class FieldPlayer {
 
   _loco(dt, moveDir, sprint) {
     const wants = moveDir && moveDir.lengthSq() > 1e-4;
-    const top = sprint ? RUN_SPEED : WALK_SPEED * 1.7;
+    let top = sprint ? RUN_SPEED : WALK_SPEED * 1.7;
+    if (this.carrying) top *= 0.85; // a player on the ball runs 15% slower
     const target = this._tmp.set(0, 0, 0);
     if (wants) target.copy(moveDir).setY(0).normalize().multiplyScalar(top);
     const blend = 1 - Math.exp(-ACCEL * dt);

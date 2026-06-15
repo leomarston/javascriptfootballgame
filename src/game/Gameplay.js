@@ -188,6 +188,7 @@ export class Gameplay {
       this.passCharge = 0;
       this.shotCharge = 0;
     }
+    for (const a of this.field) a.carrying = a === this.ballOwner; // 15% slower on the ball
     me.update(dt, this.inputDir(), this.keys.has('shift'));
     for (const a of this.field) {
       if (a === me) continue;
