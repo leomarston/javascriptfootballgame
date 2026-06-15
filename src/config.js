@@ -48,7 +48,7 @@ export const GOAL = {
 };
 
 export const BALL = {
-  RADIUS: 0.11,
+  RADIUS: 0.13,
   MASS: 0.43,
   RESTITUTION: 0.55, // bounciness against the turf
   ROLL_FRICTION: 0.55, // velocity damping while rolling (per second)

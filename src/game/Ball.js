@@ -1,7 +1,7 @@
 /**
  * Ball.js — the match ball: a sphere wearing a procedurally drawn classic
- * 32-panel (truncated-icosahedron) texture, plus the physics state the Physics
- * module integrates each frame.
+ * 32‑panel (truncated‑icosahedron) texture with seam shading and a glossy
+ * clearcoat, plus the physics state the Physics module integrates each frame.
  */
 
 import * as THREE from 'three';
@@ -10,12 +10,15 @@ import { BALL } from '../config.js';
 export class Ball {
   constructor() {
     const tex = this.makeTexture();
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshPhysicalMaterial({
       map: tex,
-      roughness: 0.42,
-      metalness: 0.02
+      roughness: 0.34,
+      metalness: 0.0,
+      clearcoat: 0.55, // subtle glossy lacquer like a real match ball
+      clearcoatRoughness: 0.28,
+      envMapIntensity: 0.8
     });
-    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL.RADIUS, 48, 32), mat);
+    this.mesh = new THREE.Mesh(new THREE.SphereGeometry(BALL.RADIUS, 64, 48), mat);
     this.mesh.castShadow = true;
     this.mesh.name = 'Ball';
 
@@ -33,14 +36,16 @@ export class Ball {
     c.width = W;
     c.height = H;
     const ctx = c.getContext('2d');
-    ctx.fillStyle = '#f6f7f9';
+
+    // soft off-white base
+    ctx.fillStyle = '#f4f5f2';
     ctx.fillRect(0, 0, W, H);
 
-    // faint panel shading for depth
+    // gentle large-scale shading so the panels read with some form
     const grad = ctx.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, 'rgba(0,0,0,0.06)');
-    grad.addColorStop(0.5, 'rgba(0,0,0,0)');
-    grad.addColorStop(1, 'rgba(0,0,0,0.06)');
+    grad.addColorStop(0.5, 'rgba(255,255,255,0.05)');
+    grad.addColorStop(1, 'rgba(0,0,0,0.07)');
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
 
@@ -51,11 +56,8 @@ export class Ball {
       centres.push([-26.57, i * 72 + 36]);
     }
 
-    const drawPenta = (lat, lon, r) => {
-      const u = ((lon + 180) / 360) * W;
-      const v = ((90 - lat) / 180) * H;
-      const distort = 1 / Math.max(0.35, Math.cos(THREE.MathUtils.degToRad(lat)));
-      ctx.fillStyle = '#16181d';
+    const PEN = '#15161b';
+    const pentaPath = (u, v, r, distort) => {
       ctx.beginPath();
       for (let k = 0; k < 5; k++) {
         const a = (k / 5) * Math.PI * 2 - Math.PI / 2;
@@ -65,13 +67,32 @@ export class Ball {
         else ctx.lineTo(px, py);
       }
       ctx.closePath();
+    };
+
+    const drawPenta = (lat, lon, r) => {
+      const u = ((lon + 180) / 360) * W;
+      const v = ((90 - lat) / 180) * H;
+      const distort = 1 / Math.max(0.32, Math.cos(THREE.MathUtils.degToRad(lat)));
+      // soft seam ambient-occlusion halo around the panel
+      ctx.save();
+      ctx.shadowColor = 'rgba(0,0,0,0.32)';
+      ctx.shadowBlur = 16;
+      ctx.fillStyle = PEN;
+      pentaPath(u, v, r, distort);
       ctx.fill();
+      ctx.restore();
+      // crisp seam outline
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = 'rgba(44,46,54,0.55)';
+      pentaPath(u, v, r * 1.06, distort);
+      ctx.stroke();
     };
 
     // draw pole pentagons as caps so they don't smear across the seam
-    ctx.fillStyle = '#16181d';
-    ctx.fillRect(0, 0, W, 14);
-    ctx.fillRect(0, H - 14, W, 14);
+    ctx.fillStyle = PEN;
+    ctx.fillRect(0, 0, W, 12);
+    ctx.fillRect(0, H - 12, W, 12);
     for (const [lat, lon] of centres) {
       if (Math.abs(lat) === 90) continue;
       drawPenta(lat, lon, 34);

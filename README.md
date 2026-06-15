@@ -59,8 +59,10 @@ every asset generated procedurally in code.
   clips you could open in Blender or Unity (see *Baking the player*).
 
 ### Gameplay
-- Move the player around the pitch; **dribble** the ball on contact, **kick** it
-  with Space, or take a **charged shot** toward the cursor with the mouse.
+- **Close‑control dribbling**: run near a loose ball to **trap** it, then it
+  stays glued just ahead of the boots through turns and sprints. You only lose
+  it by **kicking on purpose** (pass / charged shot / cross / aimed shot), by
+  taking it **out of play**, or — once opponents exist — by being **tackled**.
 - Full arcade **ball physics**: gravity, turf bounce, rolling friction with
   matching spin, aerodynamic drag, reflective walls and **goal‑post collisions**.
 - **Goal‑line detection**, live scoreboard with match clock, goal celebration
@@ -75,8 +77,9 @@ every asset generated procedurally in code.
 | --- | --- |
 | **W A S D / Arrows** | Move the player (camera‑relative) |
 | **Shift** | Sprint (run) |
-| **Space** | Kick / pass the ball |
-| **Hold + release Left Mouse** | Charged shot toward the cursor |
+| **Space** | Pass — hold to drive it harder |
+| **F** | Cross / lofted ball |
+| **Hold + release Left Mouse** | Aimed shot toward the cursor (charged) |
 | **R** | Reset to kickoff |
 | **C** | Cycle camera (Broadcast · Follow · Aerial · Free) |
 | **N** | Toggle day / night |
