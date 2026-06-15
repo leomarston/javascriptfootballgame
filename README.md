@@ -67,8 +67,11 @@ every asset generated procedurally in code.
 - **Team shape, not a swarm**: off‑ball players hold an **elastic formation
   slot** — they follow the ball partially (line height + lateral compactness),
   **push up** in possession and **drop** when defending — so the team keeps its
-  shape. Exactly **one player presses** the ball; one teammate offers support;
-  an AI carrier dribbles, passes or shoots.
+  shape. One teammate offers support; an AI carrier dribbles, passes or shoots.
+- **Defending as a unit**: the nearest player **presses** the ball, a second man
+  **covers** goal‑side behind him, and the rest **collapse** toward the ball the
+  closer the attack gets to goal — so an attacker driving at the box is swarmed
+  by the block, not chased by one defender.
 - **Auto‑switching control**: you drive the HOME ball carrier; a pass switches you
   to the receiver; when defending you take over the HOME player nearest the ball.
   A yellow **ring** marks your player (its name shows bottom‑left); an auto‑switch

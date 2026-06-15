@@ -69,6 +69,7 @@ export class Gameplay {
     this.shotCharging = false;
     this.shotCharge = 0;
     this.presser = {};
+    this.cover = {};
     this.support = {};
 
     this._fwd = new THREE.Vector3();
@@ -228,19 +229,20 @@ export class Gameplay {
 
   precomputeRoles() {
     const owner = this.ballOwner;
+    const b = this.ball.position;
     for (const team of ['HOME', 'AWAY']) {
-      const arr = this.teamArr(team);
-      let pn = null;
-      let pd = Infinity;
-      let sn = null;
-      let sd = Infinity;
-      for (const a of arr) {
-        const d = this.horiz(a.position, this.ball.position);
-        if (d < pd) { pd = d; pn = a; }
-        if (a !== owner && d < sd) { sd = d; sn = a; }
+      const arr = this.teamArr(team).slice()
+        .sort((x, y) => this.horiz(x.position, b) - this.horiz(y.position, b));
+      const teamHas = owner && owner.team === team;
+      if (teamHas) {
+        this.presser[team] = null;
+        this.cover[team] = null;
+        this.support[team] = arr.find((p) => p !== owner) || null;
+      } else {
+        this.presser[team] = arr[0] || null; // nearest engages the ball
+        this.cover[team] = arr[1] || null; // second man covers behind
+        this.support[team] = null;
       }
-      this.presser[team] = pn;
-      this.support[team] = sn;
     }
   }
 
@@ -269,25 +271,29 @@ export class Gameplay {
 
     if (owner === a) return this.carrierAI(a);
 
-    if (!teamHas && a === this.presser[team]) {
+    if (teamHas) {
+      if (a === this.support[team] && owner.roleType !== 'GK') {
+        return this.steer(a, this.supportTarget(a, owner), true);
+      }
+      return this.steer(a, this.formationTarget(a, true));
+    }
+
+    // --- defending ---
+    if (a === this.presser[team]) {
       const d = this.horiz(a.position, this.ball.position);
-      const tackleable = owner && owner.team !== team && owner.roleType !== 'GK';
+      const tackleable = owner && owner.roleType !== 'GK';
       if (tackleable && d < 1.6 && !a.busy && a.captureCooldown <= 0) {
         a.heading = this.headingTo(a, this.ball.position);
-        const fast = Math.hypot(owner.velocity.x, owner.velocity.z) > 4;
+        const fast = owner.velocity && Math.hypot(owner.velocity.x, owner.velocity.z) > 4;
         if (fast && d > 0.9) a.startSlide();
         else a.startTackle();
         a.captureCooldown = 0.8;
         return { dir: null, sprint: false };
       }
-      return this.steer(a, this.ball.position, true);
+      return this.steer(a, this.ball.position, true); // close the carrier down
     }
-
-    if (teamHas && a === this.support[team] && owner.roleType !== 'GK') {
-      return this.steer(a, this.supportTarget(a, owner), true);
-    }
-
-    return this.steer(a, this.formationTarget(a, teamHas));
+    if (a === this.cover[team]) return this.steer(a, this.coverTarget(a), true);
+    return this.steer(a, this.defendTarget(a), true); // collapse with the unit
   }
 
   formationTarget(a, teamHas) {
@@ -296,6 +302,34 @@ export class Gameplay {
     let tx = a.homePos.x + (b.x - a.homePos.x) * LINE_FACTOR;
     let tz = a.homePos.z + (b.z - a.homePos.z) * SIDE_FACTOR;
     tx += teamHas ? s * PUSH[a.roleType] : -s * DROP[a.roleType];
+    tx = THREE.MathUtils.clamp(tx, -HL + 2, HL - 2);
+    tz = THREE.MathUtils.clamp(tz, -HW + 2, HW - 2);
+    return this._t.set(tx, 0, tz);
+  }
+
+  // The covering defender drops a few metres goal-side of the ball, backing up
+  // the presser in case they're beaten.
+  coverTarget(a) {
+    const s = ATTACK_SIGN[a.team];
+    const tx = THREE.MathUtils.clamp(this.ball.position.x - s * 5, -HL + 2, HL - 2);
+    const tz = THREE.MathUtils.clamp(this.ball.position.z * 0.5, -HW + 2, HW - 2);
+    return this._t.set(tx, 0, tz);
+  }
+
+  // Off-ball defenders collapse toward (goal-side of) the ball as the attack
+  // gets closer to our goal — the whole unit shrinks the space, not just one.
+  defendTarget(a) {
+    const s = ATTACK_SIGN[a.team];
+    const ownGoalX = -s * HL;
+    const distFromGoal = Math.abs(this.ball.position.x - ownGoalX);
+    const danger = THREE.MathUtils.clamp(1 - distFromGoal / 35, 0, 1);
+    const base = this.formationTarget(a, false); // elastic slot (drops with the line)
+    const bx = base.x;
+    const bz = base.z;
+    const goalSideX = this.ball.position.x - s * 4;
+    const collapse = danger * 0.65;
+    let tx = THREE.MathUtils.lerp(bx, goalSideX, collapse);
+    let tz = THREE.MathUtils.lerp(bz, this.ball.position.z * 0.55, collapse);
     tx = THREE.MathUtils.clamp(tx, -HL + 2, HL - 2);
     tz = THREE.MathUtils.clamp(tz, -HW + 2, HW - 2);
     return this._t.set(tx, 0, tz);
