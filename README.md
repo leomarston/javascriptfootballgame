@@ -47,7 +47,20 @@ every asset generated procedurally in code.
 - **Day / Night** mode with a gradient night dome, stars and a floodlit pitch.
 - Automatic graceful degradation on software/headless GL.
 
+### The player (rigged & animated)
+- A **fully rigged, skinned humanoid** — 19 bones covering pelvis, spine, chest,
+  neck, head, both clavicles, upper/lower arms, hands, thighs, shins and feet.
+- **Hand‑authored animation clips** — `idle`, `walk` and `run` keyed as real
+  locomotion cycles (contact · passing · toe‑off · swing) and played back by an
+  `AnimationMixer`. The motion is designed art, not per‑frame procedural code.
+- **Speed‑driven blending**: the player eases from idle → walk → run, cross‑fades
+  the clips and stride‑syncs playback to ground speed, and turns to face the run.
+- Built as a portable **glTF asset** (`src/assets/player.glb`) — the same skin +
+  clips you could open in Blender or Unity (see *Baking the player*).
+
 ### Gameplay
+- Move the player around the pitch; **dribble** the ball on contact, **kick** it
+  with Space, or take a **charged shot** toward the cursor with the mouse.
 - Full arcade **ball physics**: gravity, turf bounce, rolling friction with
   matching spin, aerodynamic drag, reflective walls and **goal‑post collisions**.
 - **Goal‑line detection**, live scoreboard with match clock, goal celebration
@@ -60,9 +73,10 @@ every asset generated procedurally in code.
 
 | Input | Action |
 | --- | --- |
+| **W A S D / Arrows** | Move the player (camera‑relative) |
+| **Shift** | Sprint (run) |
+| **Space** | Kick / pass the ball |
 | **Hold + release Left Mouse** | Charged shot toward the cursor |
-| **W A S D / Arrows** | Dribble the ball |
-| **Space** | Loft / chip the ball |
 | **R** | Reset to kickoff |
 | **C** | Cycle camera (Broadcast · Follow · Aerial · Free) |
 | **N** | Toggle day / night |
@@ -116,14 +130,31 @@ src/
 ├─ game/
 │  ├─ Ball.js              # ball mesh + classic panel texture
 │  ├─ Physics.js           # bounce / roll / drag / collisions / goals
-│  ├─ Gameplay.js          # input, shooting, scoring, kickoff
-│  └─ CameraRig.js         # broadcast / follow / aerial / orbit
-├─ ui/HUD.js               # scoreboard, power meter, goal banner, loader
+│  ├─ Gameplay.js          # input, player control, scoring, kickoff
+│  ├─ CameraRig.js         # broadcast / follow / aerial / orbit
+│  ├─ Player.js            # loads player.glb, locomotion + clip blending
+│  └─ player/
+│     ├─ PlayerRig.js          # skeleton + skinned mesh (the model)
+│     └─ PlayerAnimations.js   # authored idle / walk / run clips
+├─ assets/player.glb       # baked rig + clips (glTF art asset)
+├─ ui/HUD.js               # scoreboard, goal banner, loader
 └─ utils/                  # geometry + async helpers
 ```
 
-`tools/screenshot.mjs` is an optional Playwright helper for capturing renders
-headlessly.
+`tools/screenshot.mjs` captures showcase renders headlessly.
+
+### Baking the player
+
+`src/assets/player.glb` is generated from the rig + clips above and can be
+re‑baked at any time:
+
+```bash
+npm run dev                 # serve the bake page (in one shell)
+npm run bake:player         # export src/assets/player.glb (in another)
+```
+
+The exporter writes a standard glTF skin with the `idle` / `walk` / `run`
+clips, so the character drops straight into Blender, Unity or any glTF viewer.
 
 ---
 

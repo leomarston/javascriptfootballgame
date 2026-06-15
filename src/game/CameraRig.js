@@ -43,8 +43,8 @@ export class CameraRig {
     if (mode === 'orbit') this.controls.target.copy(this._curTarget);
   }
 
-  update(dt, ball) {
-    const bp = ball.position;
+  update(dt, target) {
+    const bp = target.position;
 
     if (this.mode === 'orbit') {
       this.controls.update();
@@ -52,25 +52,25 @@ export class CameraRig {
       return;
     }
 
-    // keep a smoothed "forward" from the ball's motion
-    const v = ball.velocity;
-    if (v.lengthSq() > 4) {
-      this.forward.lerp(new THREE.Vector3(v.x, 0, v.z).normalize(), 0.05);
+    // keep a smoothed "forward" from the target's motion
+    const v = target.velocity;
+    if (v.lengthSq() > 1) {
+      this.forward.lerp(new THREE.Vector3(v.x, 0, v.z).normalize(), 0.08);
       this.forward.normalize();
     }
 
     if (this.mode === 'broadcast') {
       // elevated TV camera on the main (+Z) stand, looking across the pitch
-      this._desiredPos.set(bp.x * 0.35, 25, 56);
-      this._desiredTarget.set(bp.x * 0.28, 0.5, bp.z * 0.3 - 3);
+      this._desiredPos.set(bp.x * 0.5, 22, 50);
+      this._desiredTarget.set(bp.x * 0.5, 1.0, bp.z * 0.4 - 2);
     } else if (this.mode === 'follow') {
-      const back = this.forward.clone().multiplyScalar(-11);
-      this._desiredPos.set(bp.x + back.x, bp.y + 6.5, bp.z + back.z);
-      const ahead = this.forward.clone().multiplyScalar(8);
-      this._desiredTarget.set(bp.x + ahead.x, 1.2, bp.z + ahead.z);
+      const back = this.forward.clone().multiplyScalar(-8);
+      this._desiredPos.set(bp.x + back.x, 4.5, bp.z + back.z);
+      const ahead = this.forward.clone().multiplyScalar(6);
+      this._desiredTarget.set(bp.x + ahead.x, 1.4, bp.z + ahead.z);
     } else if (this.mode === 'aerial') {
-      this._desiredPos.set(bp.x * 0.25, 74, 44);
-      this._desiredTarget.set(bp.x * 0.2, 0, -2);
+      this._desiredPos.set(bp.x * 0.4, 60, 40);
+      this._desiredTarget.set(bp.x * 0.35, 0, bp.z * 0.3 - 2);
     }
 
     const k = 1 - Math.pow(0.001, dt); // frame-rate independent smoothing

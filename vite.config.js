@@ -5,6 +5,8 @@ import { defineConfig } from 'vite';
 // from any sub-path (or even straight off the file system after `vite preview`).
 export default defineConfig({
   base: './',
+  // .glb is the baked player art asset — import it for a hashed, base-relative URL.
+  assetsInclude: ['**/*.glb'],
   server: {
     host: true,
     port: 5173,

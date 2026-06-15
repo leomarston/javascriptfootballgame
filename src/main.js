@@ -13,6 +13,7 @@ import { Environment } from './core/Environment.js';
 import { PostFX } from './core/PostFX.js';
 import { Stadium } from './stadium/Stadium.js';
 import { Ball } from './game/Ball.js';
+import { Player } from './game/Player.js';
 import { CameraRig } from './game/CameraRig.js';
 import { Gameplay } from './game/Gameplay.js';
 import { HUD } from './ui/HUD.js';
@@ -76,9 +77,22 @@ class App {
     this.ball = new Ball();
     this.scene.add(this.ball.object);
 
+    this.hud.setLoading(0.97, 'Lacing the boots');
+    this.player = new Player();
+    this.player.heading = Math.PI / 2; // face the pitch (+X)
+    await this.player.load();
+    this.player.reset(-2.2, 0);
+    this.scene.add(this.player.object);
+
     this.rig = new CameraRig(this.renderer.domElement, innerWidth / innerHeight);
     this.postfx = new PostFX(this.renderer, this.scene, this.rig.camera);
-    this.gameplay = new Gameplay(this.ball, this.rig, this.renderer.domElement, this.hud);
+    this.gameplay = new Gameplay(
+      this.player,
+      this.ball,
+      this.rig,
+      this.renderer.domElement,
+      this.hud
+    );
 
     this.wireControls();
     this.applyNight(); // night is the default look
@@ -121,7 +135,7 @@ class App {
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
     this.gameplay.update(dt);
-    this.rig.update(dt, this.ball);
+    this.rig.update(dt, this.player);
     this.stadium.update(dt);
     this.hud.update(dt);
     this.postfx.render(this.rig.camera);
