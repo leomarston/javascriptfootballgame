@@ -127,11 +127,35 @@ export class Goalkeeper {
       } else {
         this._maybeReact(ball);
         this._tryHandSave(ball, result, dt);
+        if (this.state === 'set') this._blockBody(ball); // still up: stay solid
       }
     } else if (this.state === 'dive' || this.state === 'jump') {
       if (!this.saved) this._tryHandSave(ball, result, dt);
+    } else if (this.state === 'recover') {
+      this._blockBody(ball);
     }
     return result;
+  }
+
+  // The keeper's torso/legs are solid — a loose ball can never pass through it.
+  _blockBody(ball) {
+    if (ball.position.y > 2.0) return; // ball is over the keeper's head
+    const minD = BALL.RADIUS + 0.4; // body radius
+    const dx = ball.position.x - this.position.x;
+    const dz = ball.position.z - this.position.z;
+    const d = Math.hypot(dx, dz);
+    if (d < minD && d > 1e-4) {
+      const nx = dx / d;
+      const nz = dz / d;
+      ball.position.x = this.position.x + nx * minD;
+      ball.position.z = this.position.z + nz * minD;
+      const vn = ball.velocity.x * nx + ball.velocity.z * nz;
+      if (vn < 0) {
+        ball.velocity.x -= 1.6 * vn * nx;
+        ball.velocity.z -= 1.6 * vn * nz;
+      }
+      ball.syncMesh();
+    }
   }
 
   // --- positioning --------------------------------------------------------
@@ -139,9 +163,10 @@ export class Goalkeeper {
   _setPositioning(dt, ball) {
     const onTarget = ball.position.x < GOAL_X && ball.position.x > 2;
     const distToGoal = GOAL_X - ball.position.x;
-    // come off the line to narrow the angle as the ball gets close & central
-    const advance = onTarget && Math.abs(ball.position.z) < 14
-      ? THREE.MathUtils.clamp(1 - distToGoal / 26, 0, 1) * 2.6
+    // come off the line a touch to narrow the angle only when the ball is close
+    // and central — otherwise hold the line so it stands planted in the goal
+    const advance = onTarget && Math.abs(ball.position.z) < 12
+      ? THREE.MathUtils.clamp(1 - distToGoal / 18, 0, 1) * 1.4
       : 0;
     const targetX = GOAL_X - (LINE_DEPTH + advance);
     const targetZ = THREE.MathUtils.clamp(ball.position.z * 0.85, -COVER_Z, COVER_Z);
@@ -190,8 +215,11 @@ export class Goalkeeper {
     this.saved = false;
     if (kind === 'jump') {
       this.state = 'jump';
-      this.diveDur = 0.85;
-      this.diveVel.set(-1.0, 3.6, 0); // small step out + vertical leap
+      this.diveDur = 0.8;
+      // a real leap: apex (~0.42s) lines up with the clip's overhead reach,
+      // drifting toward the ball if it's a touch off-centre
+      const drift = THREE.MathUtils.clamp((predZ - this.position.z) * 1.5, -3, 3);
+      this.diveVel.set(-0.8, 5.0, drift);
       this.activeDive = 'jump';
       this.actions.jump.reset();
     } else {

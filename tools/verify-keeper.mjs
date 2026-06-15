@@ -45,7 +45,7 @@ async function pose(file, clip, t, cam, target) {
 
 await pose('keeper_idle', 'idle', 0.4, [1.6, 1.1, 3.0], [0, 0.85, 0]);
 await pose('keeper_dive', 'divePos', 0.55, [0.4, 1.1, 3.6], [0.5, 0.6, 0]);
-await pose('keeper_jump', 'jump', 0.45, [1.4, 1.6, 3.2], [0, 1.3, 0]);
+await pose('keeper_jump', 'jump', 0.42, [1.4, 1.6, 3.2], [0, 1.3, 0]);
 
 // ---- behaviour tests ----
 const res = await page.evaluate(() => {
@@ -114,6 +114,18 @@ const res = await page.evaluate(() => {
   for (let i = 0; i < 8 && g.owned; i++) g.update(DT);
   out.smother_playerLost = !g.owned;          // expect true
   out.smother_keeperHolds = k.holding;        // expect true
+
+  // 6) solid body: a loose ball can never roll through the standing keeper
+  k.reset(); p.reset(-40, 0);
+  b.position.set(k.position.x - 0.6, 0.4, k.position.z); b.velocity.set(6, 0, 0);
+  let through = false;
+  for (let i = 0; i < 50; i++) {
+    k.update(DT, b, p, false);
+    if (!k.holding) g.physics.step(b, DT);
+    if (b.position.x > k.position.x + 0.35) through = true;
+  }
+  out.block_through = through;                 // expect false
+  out.block_handled = k.holding || Math.hypot(b.position.x - k.position.x, b.position.z - k.position.z) > 0.4;
 
   g.kickoff();
   return out;
