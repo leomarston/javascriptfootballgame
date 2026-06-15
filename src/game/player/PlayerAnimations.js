@@ -57,11 +57,12 @@ function clip(name, D, s) {
     quatTrack('shinR', D, half(s.knee)),
     quatTrack('footL', D, full(s.foot)),
     quatTrack('footR', D, half(s.foot)),
-    // arms swing contralaterally (right arm with left leg)
-    quatTrack('upperArmR', D, full(s.arm), [0, 0, -s.abduct]),
-    quatTrack('upperArmL', D, half(s.arm), [0, 0, s.abduct]),
-    quatTrack('lowerArmR', D, full(s.elbow)),
-    quatTrack('lowerArmL', D, half(s.elbow)),
+    // arms swing contralaterally: the right arm leads with the LEFT leg, so it
+    // takes the opposite half-cycle to the right leg (thighR = half).
+    quatTrack('upperArmR', D, half(s.arm), [0, 0, -s.abduct]),
+    quatTrack('upperArmL', D, full(s.arm), [0, 0, s.abduct]),
+    quatTrack('lowerArmR', D, half(s.elbow)),
+    quatTrack('lowerArmL', D, full(s.elbow)),
     quatTrack('spine', D, full(s.spine)),
     quatTrack('chest', D, full(s.chest)),
     quatTrack('head', D, full(s.head)),
