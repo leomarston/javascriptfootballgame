@@ -60,9 +60,9 @@ export class CameraRig {
     }
 
     if (this.mode === 'broadcast') {
-      // elevated TV camera on the main (+Z) stand, looking across the pitch
-      this._desiredPos.set(bp.x * 0.5, 22, 50);
-      this._desiredTarget.set(bp.x * 0.5, 1.0, bp.z * 0.4 - 2);
+      // close, high-angle cam that tracks the player from the +Z side
+      this._desiredPos.set(bp.x, 15, bp.z + 20);
+      this._desiredTarget.set(bp.x, 1.0, bp.z);
     } else if (this.mode === 'follow') {
       const back = this.forward.clone().multiplyScalar(-8);
       this._desiredPos.set(bp.x + back.x, 4.5, bp.z + back.z);
