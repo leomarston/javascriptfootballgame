@@ -14,15 +14,17 @@ const res = await page.evaluate(()=>{
   // facing the goal from close -> toward goal
   me.reset(46,0,Math.PI/2); b.reset(46,0); b.position.y=0.13; g.shoot(me,0.8);
   out.facingGoal_goesToGoal = b.velocity.x > 5;
-  // on-target rate (keeper-free) drops with distance
-  function rate(x,n){ let h=0; for(let i=0;i<n;i++){ me.reset(x,0,Math.PI/2); b.reset(x,0); b.position.y=0.13; g.shoot(me,0.9);
+  // on-target rate (keeper-free) drops with distance. Use a height-safe charge
+  // per range (over-hitting sails over the bar — that height mechanic is covered
+  // separately by verify-overbar.mjs); here we isolate horizontal aim / spread.
+  function rate(x,charge,n){ let h=0; for(let i=0;i<n;i++){ me.reset(x,0,Math.PI/2); b.reset(x,0); b.position.y=0.13; g.shoot(me,charge);
     let on=false; for(let f=0;f<180;f++){ const px=b.position.x; g.physics.step(b,DT);
-      if(px<52.5 && b.position.x>=52.5){ if(Math.abs(b.position.z)<3.5 && b.position.y<2.3) on=true; break; }
+      if(px<52.5 && b.position.x>=52.5){ if(Math.abs(b.position.z)<3.5 && b.position.y<2.44) on=true; break; }
       if(Math.abs(b.position.z)>34 || b.position.x<x-2) break; }
     if(on) h++; } return +(h/n).toFixed(2); }
-  out.closeRate = rate(47,60);
-  out.midRate = rate(36,60);
-  out.farRate = rate(22,60);
+  out.closeRate = rate(47,0.85,60);
+  out.midRate = rate(36,0.5,60);
+  out.farRate = rate(22,0.8,60);
   out.dropsWithDistance = out.closeRate > out.midRate && out.midRate > out.farRate;
   return out;
 });
