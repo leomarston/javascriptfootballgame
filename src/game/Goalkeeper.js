@@ -13,7 +13,7 @@
  */
 
 import * as THREE from 'three';
-import { buildPlayerRig } from './player/PlayerRig.js';
+import { buildPlayerRig, PLAYER_SCALE } from './player/PlayerRig.js';
 import { buildKeeperClips } from './player/GoalkeeperAnimations.js';
 import { FIELD, GOAL, BALL } from '../config.js';
 
@@ -46,6 +46,7 @@ export class Goalkeeper {
 
     this.object = new THREE.Group();
     this.object.add(this.mesh);
+    this.object.scale.setScalar(PLAYER_SCALE);
     this.object.rotation.y = side > 0 ? -Math.PI / 2 : Math.PI / 2; // face the field
     this.position = this.object.position;
 

@@ -20,6 +20,11 @@ import { TEAMS } from '../../config.js';
 // Pelvis height (m) — tuned so the boots rest on the pitch (y ≈ 0).
 const HIP_Y = 1.0;
 
+// Visual size multiplier applied by the player wrappers (FieldPlayer/Goalkeeper)
+// to the whole rig group. Scaling the group keeps the feet planted and leaves
+// gameplay spacing (body radius, dribble offsets) untouched.
+export const PLAYER_SCALE = 1.12;
+
 // Default outfield kit (home / red). A keeper passes its own overrides.
 const DEFAULT_KIT = {
   skin: 0xe8b48c,

@@ -89,15 +89,26 @@ export function createPitchAlbedo() {
     const jitter = (Math.random() - 0.5) * 8;
     const x0 = mx(i * stripeW - stripeW / 2);
     const x1 = mx(i * stripeW + stripeW / 2);
-    // subtle vertical gradient inside each stripe for a touch of depth
+    // vertical gradient inside each stripe for a touch of depth
     const grad = ctx.createLinearGradient(0, 0, 0, H);
-    const c0 = `rgb(${base.r + jitter + 4},${base.g + jitter + 6},${base.b + jitter})`;
-    const c1 = `rgb(${base.r + jitter - 6},${base.g + jitter - 4},${base.b + jitter - 4})`;
+    const c0 = `rgb(${base.r + jitter + 9},${base.g + jitter + 12},${base.b + jitter + 3})`;
+    const c1 = `rgb(${base.r + jitter - 11},${base.g + jitter - 8},${base.b + jitter - 6})`;
     grad.addColorStop(0, c0);
     grad.addColorStop(0.5, `rgb(${base.r + jitter},${base.g + jitter},${base.b + jitter})`);
     grad.addColorStop(1, c1);
     ctx.fillStyle = grad;
     ctx.fillRect(x0, 0, x1 - x0, H);
+  }
+
+  // ---- 1b. faint perpendicular cross-cut → a manicured checker look ------
+  const minJ = Math.floor((-GRASS_W / 2) / stripeW) - 1;
+  const maxJ = Math.ceil((GRASS_W / 2) / stripeW) + 1;
+  for (let j = minJ; j <= maxJ; j++) {
+    const lighten = ((j % 2) + 2) % 2 === 0;
+    ctx.fillStyle = lighten ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.055)';
+    const z0 = mz(j * stripeW - stripeW / 2);
+    const z1 = mz(j * stripeW + stripeW / 2);
+    ctx.fillRect(0, z0, W, z1 - z0);
   }
 
   // ---- 2. organic mottling (clumps of slightly different green) ----------
@@ -149,7 +160,7 @@ export function createPitchAlbedo() {
   }
   gctx.putImageData(img, 0, 0);
   ctx.globalCompositeOperation = 'overlay';
-  ctx.globalAlpha = 0.12;
+  ctx.globalAlpha = 0.16;
   const pattern = ctx.createPattern(grain, 'repeat');
   ctx.fillStyle = pattern;
   ctx.fillRect(0, 0, W, H);
@@ -252,7 +263,7 @@ export function createTurfNormal(size = 512) {
   const ctx = canvas.getContext('2d');
   const img = ctx.createImageData(size, size);
   const idx = (x, y) => ((y + size) % size) * size + ((x + size) % size);
-  const strength = 2.4;
+  const strength = 3.2;
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
       const dx = (height[idx(x + 1, y)] - height[idx(x - 1, y)]) * strength;

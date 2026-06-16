@@ -9,7 +9,7 @@
  */
 
 import * as THREE from 'three';
-import { buildPlayerRig } from './player/PlayerRig.js';
+import { buildPlayerRig, PLAYER_SCALE } from './player/PlayerRig.js';
 import { buildPlayerClips } from './player/PlayerAnimations.js';
 
 const WALK_SPEED = 2.2;
@@ -31,6 +31,7 @@ export class FieldPlayer {
     this.slots = rig.slots; // kit vertex ranges, for recolouring to a team kit
     this.object = new THREE.Group();
     this.object.add(this.mesh);
+    this.object.scale.setScalar(PLAYER_SCALE);
 
     this.team = team;
     this.roleType = role; // 'DF' | 'MF' | 'FW'
