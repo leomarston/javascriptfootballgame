@@ -40,7 +40,7 @@ export class TeamSelect {
   build() {
     const root = el('div', 'ts focus-home', document.body);
     this.root = root;
-    el('div', 'ts-bg', root).innerHTML = facetSVG(0x16327a, 0x0c1a44, { seed: 23 });
+    el('div', 'ts-bg', root).innerHTML = facetSVG(0x081230, 0x2f6ad0, { seed: 23 });
 
     // headers: HOME · EXHIBITION · AWAY
     const heads = el('div', 'ts-headers', root);

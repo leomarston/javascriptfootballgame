@@ -10,7 +10,7 @@
 const rgb = (hex) => ({ r: (hex >> 16) & 255, g: (hex >> 8) & 255, b: hex & 255 });
 const lerp = (a, b, t) => Math.round(a + (b - a) * t);
 
-export function facetSVG(c0, c1, { cols = 10, rows = 7, seed = 1, jitter = 0.72, variance = 0.16 } = {}) {
+export function facetSVG(c0, c1, { cols = 7, rows = 5, seed = 1, jitter = 0.62, variance = 0.34 } = {}) {
   let s = seed >>> 0;
   const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
   const W = 100;

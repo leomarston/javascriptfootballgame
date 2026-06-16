@@ -40,7 +40,7 @@ export class MainMenu {
     this.root = root;
 
     // background dressing: low-poly facets + faint angular streaks + watermark
-    el('div', 'menu-bg', root).innerHTML = facetSVG(0x171f5a, 0x3a2272, { seed: 5 });
+    el('div', 'menu-bg', root).innerHTML = facetSVG(0x0c1140, 0x5a31a8, { seed: 5 });
     el('div', 'menu-streaks', root);
     this.watermark = el('div', 'menu-watermark', root, SECTIONS[0].label);
 

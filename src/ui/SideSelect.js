@@ -44,7 +44,7 @@ export class SideSelect {
   build() {
     const root = el('div', 'ss', document.body);
     this.root = root;
-    el('div', 'ss-bg', root).innerHTML = facetSVG(0x241a52, 0x120d2c, { seed: 11 });
+    el('div', 'ss-bg', root).innerHTML = facetSVG(0x0a0824, 0x402a78, { seed: 11 });
     root.insertAdjacentHTML('beforeend', this.ribbons());
 
     const board = el('div', 'ss-board', root);
