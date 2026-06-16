@@ -37,14 +37,16 @@ export class HUD {
     const home = el('div', 'team home', board);
     home.style.setProperty('--c', '#' + TEAMS.HOME.primary.toString(16).padStart(6, '0'));
     el('span', 'badge', home);
-    el('span', 'tname', home, TEAMS.HOME.short);
+    this.homeName = el('span', 'tname', home, TEAMS.HOME.short);
     this.homeScore = el('span', 'tscore', board, '0');
     this.clockEl = el('span', 'clock', board, "0'");
     this.awayScore = el('span', 'tscore', board, '0');
     const away = el('div', 'team away', board);
     away.style.setProperty('--c', '#' + TEAMS.AWAY.primary.toString(16).padStart(6, '0'));
-    el('span', 'tname', away, TEAMS.AWAY.short);
+    this.awayName = el('span', 'tname', away, TEAMS.AWAY.short);
     el('span', 'badge', away);
+    this.homeTeamEl = home;
+    this.awayTeamEl = away;
 
     // ---- controlled-player name tag -------------------------------------
     this.playerTag = el('div', 'playertag', root, '');
@@ -61,6 +63,14 @@ export class HUD {
   setScore(h, a) {
     this.homeScore.textContent = h;
     this.awayScore.textContent = a;
+  }
+
+  // Point the scoreboard at the chosen teams (code + badge colour).
+  setTeams(home, away) {
+    this.homeName.textContent = home.short;
+    this.awayName.textContent = away.short;
+    this.homeTeamEl.style.setProperty('--c', '#' + home.primary.toString(16).padStart(6, '0'));
+    this.awayTeamEl.style.setProperty('--c', '#' + away.primary.toString(16).padStart(6, '0'));
   }
 
   setPlayer(team, name, label) {

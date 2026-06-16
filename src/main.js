@@ -21,6 +21,7 @@ import { Gameplay } from './game/Gameplay.js';
 import { HUD } from './ui/HUD.js';
 import { MainMenu } from './ui/MainMenu.js';
 import { SideSelect } from './ui/SideSelect.js';
+import { TeamSelect } from './ui/TeamSelect.js';
 
 class App {
   constructor() {
@@ -145,22 +146,32 @@ class App {
 
   openMainMenu() {
     if (this.sideSelect) { this.sideSelect.destroy(); this.sideSelect = null; }
+    if (this.teamSelect) { this.teamSelect.destroy(); this.teamSelect = null; }
     this.menu = new MainMenu(() => this.openSideSelect());
   }
 
   openSideSelect() {
+    if (this.teamSelect) { this.teamSelect.destroy(); this.teamSelect = null; }
     this.sideSelect = new SideSelect({
-      onConfirm: (side) => this.beginMatch(side),
+      onConfirm: (side) => this.openTeamSelect(side),
       onCancel: () => this.openMainMenu()
     });
   }
 
-  beginMatch(side) {
+  openTeamSelect(side) {
+    if (this.sideSelect) { this.sideSelect.destroy(); this.sideSelect = null; }
+    this.teamSelect = new TeamSelect({
+      onConfirm: (home, away) => this.beginMatch(side, home, away),
+      onCancel: () => this.openSideSelect()
+    });
+  }
+
+  beginMatch(side, homeNation, awayNation) {
     if (!this.inMenu) return;
     this.inMenu = false;
-    if (this.sideSelect) { this.sideSelect.destroy(); this.sideSelect = null; }
+    if (this.teamSelect) { this.teamSelect.destroy(); this.teamSelect = null; }
     this.hud.root.style.display = '';
-    this.gameplay.startMatch(side);
+    this.gameplay.startMatch(side, homeNation, awayNation);
     this.hud.startClock();
   }
 
@@ -213,7 +224,7 @@ class App {
       this.rig.update(dt, this.gameplay.cameraTarget()); // follows the ball after a shot
     }
     this.selRing.position.set(ctrl.position.x, 0.04, ctrl.position.z);
-    this.hud.setPlayer(TEAMS[this.gameplay.userSide].short, ctrl.name, ctrl.label);
+    this.hud.setPlayer(this.gameplay.teamId[this.gameplay.userSide].short, ctrl.name, ctrl.label);
 
     // power bar under the player while charging a pass / shot
     const ci = this.gameplay.chargeInfo();

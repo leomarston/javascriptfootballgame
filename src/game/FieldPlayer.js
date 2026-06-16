@@ -28,6 +28,7 @@ export class FieldPlayer {
     const rig = buildPlayerRig({ kit, hairStyle });
     this.mesh = rig.mesh;
     this.bones = rig.bones;
+    this.slots = rig.slots; // kit vertex ranges, for recolouring to a team kit
     this.object = new THREE.Group();
     this.object.add(this.mesh);
 
@@ -61,6 +62,27 @@ export class FieldPlayer {
     this.stateT = 0;
     this._won = false; // has this tackle already won the ball?
     this._tmp = new THREE.Vector3();
+  }
+
+  // Repaint the shirt / shorts / socks to a team kit (in place on the baked
+  // vertex colours) so the same player can wear any selected nation's colours.
+  setKitColors(colors) {
+    const attr = this.mesh.geometry.getAttribute('color');
+    const a = attr.array;
+    const paint = (slot, hex) => {
+      if (hex == null || !this.slots[slot]) return;
+      const c = new THREE.Color(hex);
+      for (const [start, count] of this.slots[slot]) {
+        for (let i = 0; i < count; i++) {
+          const j = (start + i) * 3;
+          a[j] = c.r; a[j + 1] = c.g; a[j + 2] = c.b;
+        }
+      }
+    };
+    paint('shirt', colors.shirt);
+    paint('shorts', colors.shorts);
+    paint('socks', colors.socks);
+    attr.needsUpdate = true;
   }
 
   reset(x = 0, z = 0, heading = 0) {

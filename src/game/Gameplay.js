@@ -66,6 +66,11 @@ export class Gameplay {
     this.physics = new Physics();
 
     this.score = { HOME: 0, AWAY: 0 };
+    // team identity (code + banner colour); the team-select screen overrides it
+    this.teamId = {
+      HOME: { short: TEAMS.HOME.short, name: TEAMS.HOME.name, primary: TEAMS.HOME.primary },
+      AWAY: { short: TEAMS.AWAY.short, name: TEAMS.AWAY.name, primary: TEAMS.AWAY.primary }
+    };
     this.active = false; // match input/clock are off until the menu kicks off
     this.keys = new Set();
     this.controlled = 0;
@@ -1034,10 +1039,26 @@ export class Gameplay {
     this.ball.syncMesh();
   }
 
-  // Called from the menu's KICK OFF: pick the human's side, enable input and
-  // start a fresh kickoff.
-  startMatch(side = 'HOME') {
+  // Apply the picked national teams: repaint each side's kit and point the
+  // scoreboard / goal banner at the new identities. The +X goal stays a HOME
+  // goal, so scoring is unaffected — only colours and labels change.
+  applyTeams(homeNation, awayNation) {
+    if (homeNation) {
+      this.teamId.HOME = { short: homeNation.id, name: homeNation.name, primary: homeNation.colors.shirt };
+      for (const p of this.home) p.setKitColors(homeNation.colors);
+    }
+    if (awayNation) {
+      this.teamId.AWAY = { short: awayNation.id, name: awayNation.name, primary: awayNation.colors.shirt };
+      for (const p of this.away) p.setKitColors(awayNation.colors);
+    }
+    this.hud.setTeams(this.teamId.HOME, this.teamId.AWAY);
+  }
+
+  // Called from the menu's KICK OFF: pick the human's side and teams, enable
+  // input and start a fresh kickoff.
+  startMatch(side = 'HOME', homeNation = null, awayNation = null) {
     this.applyUserSide(side);
+    this.applyTeams(homeNation, awayNation);
     this.active = true;
     this.kickoff();
   }
@@ -1046,8 +1067,7 @@ export class Gameplay {
     this.setOwner(null);
     this.score[scorer]++;
     this.hud.setScore(this.score.HOME, this.score.AWAY);
-    const team = scorer === 'HOME' ? TEAMS.HOME : TEAMS.AWAY;
-    this.hud.showGoal(team);
+    this.hud.showGoal({ primary: this.teamId[scorer].primary });
     this.celebrateT = 2.6;
   }
 }
