@@ -65,23 +65,6 @@ const SKELETON = [
 
 // ---- small geometry helpers (authored in each bone's local space) ----------
 
-// A capsule running down (-Y) from the bone origin, length `len`.
-function limbDown(len, r) {
-  const g = new THREE.CapsuleGeometry(r, Math.max(0.001, len - 2 * r), 4, 12);
-  g.translate(0, -len / 2, 0);
-  return g;
-}
-// A capsule running up (+Y) from the bone origin (torso segments).
-function limbUp(len, r) {
-  const g = new THREE.CapsuleGeometry(r, Math.max(0.001, len - 2 * r), 4, 12);
-  g.translate(0, len / 2, 0);
-  return g;
-}
-function sphere(r, y = 0, z = 0) {
-  const g = new THREE.SphereGeometry(r, 14, 12);
-  if (y || z) g.translate(0, y, z);
-  return g;
-}
 function boxAt(w, h, d, x, y, z) {
   const g = new THREE.BoxGeometry(w, h, d);
   g.translate(x, y, z);
@@ -98,6 +81,21 @@ function ellipsoid(rx, ry, rz, y = 0, z = 0) {
 function ballAt(r, x, y, z) {
   const g = new THREE.SphereGeometry(r, 8, 6);
   g.translate(x, y, z);
+  return g;
+}
+// An ellipsoid placed anywhere (rounded muscle / head / boot block).
+function ellipsoidAt(rx, ry, rz, x = 0, y = 0, z = 0, wseg = 18, hseg = 14) {
+  const g = new THREE.SphereGeometry(1, wseg, hseg);
+  g.scale(rx, ry, rz);
+  if (x || y || z) g.translate(x, y, z);
+  return g;
+}
+// A tapered limb segment spanning yTop→yBot (yTop above yBot) with radii
+// rTop→rBot — gives limbs real muscle taper instead of uniform tubes.
+function taperSeg(rTop, rBot, yTop, yBot, seg = 16) {
+  const len = Math.max(0.001, yTop - yBot);
+  const g = new THREE.CylinderGeometry(rTop, rBot, len, seg, 1);
+  g.translate(0, (yTop + yBot) / 2, 0);
   return g;
 }
 
@@ -129,7 +127,11 @@ function hairParts(style, hair) {
   }
 }
 
-// Each visible body part: [boneName, geometry, colour].
+// Each visible body part: [boneName, geometry, colour, kitSlot?].
+// An athletic, broadcast-style build: V-taper torso, deltoids, short sleeves
+// over bare arms, bare knees between shorts and socks, calf taper and a shaped
+// head/boots. The 4th item tags a recolourable kit slot ('shirt'|'shorts'|
+// 'socks') so a player's team colours can be repainted in place.
 function bodyParts(kit, hairStyle) {
   const skin = col(kit.skin);
   const shirt = col(kit.shirt);
@@ -137,55 +139,72 @@ function bodyParts(kit, hairStyle) {
   const socks = col(kit.socks);
   const boot = col(kit.boot);
   const hair = col(kit.hair);
-  const forearm = kit.longSleeves ? shirt : skin; // long sleeves cover the forearm
+  const eye = col(0x1b1f27);
+  const sole = col(0x0b0b0d);
+  const brow = hair.clone().multiplyScalar(0.65);
+  const long = !!kit.longSleeves; // keeper: sleeves + forearms take the shirt
+  const armC = long ? shirt : skin; // bicep / forearm colour
+  const armSlot = long ? 'shirt' : null;
   const hand = kit.glove != null ? col(kit.glove) : skin;
-  const handR = kit.glove != null ? 0.065 : 0.055; // gloves are a touch bigger
-  const eye = col(0x20242c);
-  const sole = col(0x0c0c0e);
+  const hr = kit.glove != null ? 0.062 : 0.05; // gloves a touch bigger
 
-  // The 4th item tags a recolourable kit slot ('shirt' | 'shorts' | 'socks')
-  // so a player's team colours can be repainted in place after a team is picked.
   return [
-    // torso — rounded, wider than deep
-    ['hips', ellipsoid(0.16, 0.115, 0.12, -0.01), shorts, 'shorts'],
-    ['spine', ellipsoid(0.16, 0.135, 0.115, 0.09), shirt, 'shirt'],
-    ['chest', ellipsoid(0.2, 0.16, 0.12, 0.08), shirt, 'shirt'],
-    ['neck', limbUp(0.1, 0.045), skin],
+    // ---- torso: broad chest tapering to a slim waist ----
+    ['hips', ellipsoidAt(0.15, 0.12, 0.115, 0, -0.02, 0), shorts, 'shorts'],
+    ['spine', ellipsoidAt(0.142, 0.135, 0.106, 0, 0.05, 0), shirt, 'shirt'], // waist / abs
+    ['chest', ellipsoidAt(0.205, 0.165, 0.13, 0, 0.05, 0.006), shirt, 'shirt'], // chest
+    ['chest', ellipsoidAt(0.168, 0.085, 0.112, 0, 0.16, 0), shirt, 'shirt'], // clavicle line
+    ['neck', ellipsoidAt(0.072, 0.03, 0.072, 0, 0, 0), shirt, 'shirt'], // collar
+    ['neck', taperSeg(0.046, 0.053, 0.1, -0.01), skin],
 
-    // head: skin dome + eyes (hair added per style below)
-    ['head', ellipsoid(0.115, 0.13, 0.12, 0.06, 0.004), skin],
-    ['head', ballAt(0.02, 0.045, 0.065, 0.1), eye],
-    ['head', ballAt(0.02, -0.045, 0.065, 0.1), eye],
+    // ---- head: skull + jaw + nose + ears + eyes + brows ----
+    ['head', ellipsoidAt(0.108, 0.125, 0.114, 0, 0.055, 0.004), skin],
+    ['head', ellipsoidAt(0.083, 0.072, 0.09, 0, -0.018, 0.016), skin], // jaw / chin
+    ['head', ellipsoidAt(0.02, 0.027, 0.025, 0, 0.012, 0.103), skin], // nose
+    ['head', ellipsoidAt(0.016, 0.032, 0.022, 0.103, 0.03, 0), skin], // ear R
+    ['head', ellipsoidAt(0.016, 0.032, 0.022, -0.103, 0.03, 0), skin], // ear L
+    ['head', ballAt(0.015, 0.043, 0.062, 0.097), eye],
+    ['head', ballAt(0.015, -0.043, 0.062, 0.097), eye],
+    ['head', boxAt(0.034, 0.008, 0.012, 0.044, 0.09, 0.095), brow],
+    ['head', boxAt(0.034, 0.008, 0.012, -0.044, 0.09, 0.095), brow],
 
-    // left arm
-    ['upperArmL', sphere(0.068), shirt, 'shirt'], // shoulder/deltoid
-    ['upperArmL', limbDown(0.27, 0.05), shirt, 'shirt'], // sleeve
-    ['lowerArmL', sphere(0.046), forearm, kit.longSleeves ? 'shirt' : null], // elbow
-    ['lowerArmL', limbDown(0.25, 0.043), forearm, kit.longSleeves ? 'shirt' : null], // forearm
-    ['handL', sphere(handR, -0.05, 0.005), hand],
+    // ---- left arm: deltoid · sleeve · bare bicep · forearm · hand ----
+    ['shoulderL', ellipsoidAt(0.072, 0.07, 0.072), shirt, 'shirt'],
+    ['upperArmL', taperSeg(0.06, 0.05, 0.03, -0.11), shirt, 'shirt'], // sleeve
+    ['upperArmL', taperSeg(0.047, 0.04, -0.11, -0.27), armC, armSlot], // bicep
+    ['lowerArmL', ellipsoidAt(0.043, 0.043, 0.043), armC, armSlot], // elbow
+    ['lowerArmL', taperSeg(0.04, 0.03, 0, -0.25), armC, armSlot], // forearm
+    ['handL', ellipsoidAt(hr, 0.03, hr * 1.3, 0, -0.05, 0.012), hand],
 
-    // right arm
-    ['upperArmR', sphere(0.068), shirt, 'shirt'],
-    ['upperArmR', limbDown(0.27, 0.05), shirt, 'shirt'],
-    ['lowerArmR', sphere(0.046), forearm, kit.longSleeves ? 'shirt' : null],
-    ['lowerArmR', limbDown(0.25, 0.043), forearm, kit.longSleeves ? 'shirt' : null],
-    ['handR', sphere(handR, -0.05, 0.005), hand],
+    // ---- right arm ----
+    ['shoulderR', ellipsoidAt(0.072, 0.07, 0.072), shirt, 'shirt'],
+    ['upperArmR', taperSeg(0.06, 0.05, 0.03, -0.11), shirt, 'shirt'],
+    ['upperArmR', taperSeg(0.047, 0.04, -0.11, -0.27), armC, armSlot],
+    ['lowerArmR', ellipsoidAt(0.043, 0.043, 0.043), armC, armSlot],
+    ['lowerArmR', taperSeg(0.04, 0.03, 0, -0.25), armC, armSlot],
+    ['handR', ellipsoidAt(hr, 0.03, hr * 1.3, 0, -0.05, 0.012), hand],
 
-    // left leg
-    ['thighL', sphere(0.082), shorts, 'shorts'], // hip
-    ['thighL', limbDown(0.44, 0.078), shorts, 'shorts'],
-    ['shinL', sphere(0.064), socks, 'socks'], // knee
-    ['shinL', limbDown(0.42, 0.057), socks, 'socks'],
-    ['footL', ellipsoid(0.055, 0.045, 0.13, -0.02, 0.05), boot],
-    ['footL', boxAt(0.1, 0.022, 0.26, 0, -0.052, 0.05), sole],
+    // ---- left leg: shorts (upper thigh) → bare knee → socks (shin) ----
+    ['thighL', ellipsoidAt(0.088, 0.084, 0.088), shorts, 'shorts'], // hip
+    ['thighL', taperSeg(0.09, 0.073, 0, -0.26), shorts, 'shorts'], // upper thigh (shorts)
+    ['thighL', taperSeg(0.073, 0.062, -0.26, -0.44), skin], // lower thigh (bare)
+    ['shinL', ellipsoidAt(0.06, 0.06, 0.06), skin], // knee (bare)
+    ['shinL', taperSeg(0.064, 0.04, -0.03, -0.40), socks, 'socks'], // sock
+    ['shinL', ellipsoidAt(0.05, 0.082, 0.056, 0, -0.13, -0.022), socks, 'socks'], // calf bulge
+    ['footL', ellipsoidAt(0.05, 0.04, 0.142, 0, -0.02, 0.05), boot], // boot
+    ['footL', ellipsoidAt(0.05, 0.046, 0.05, 0, -0.005, -0.05), boot], // heel
+    ['footL', boxAt(0.094, 0.02, 0.27, 0, -0.05, 0.05), sole], // sole
 
-    // right leg
-    ['thighR', sphere(0.082), shorts, 'shorts'],
-    ['thighR', limbDown(0.44, 0.078), shorts, 'shorts'],
-    ['shinR', sphere(0.064), socks, 'socks'],
-    ['shinR', limbDown(0.42, 0.057), socks, 'socks'],
-    ['footR', ellipsoid(0.055, 0.045, 0.13, -0.02, 0.05), boot],
-    ['footR', boxAt(0.1, 0.022, 0.26, 0, -0.052, 0.05), sole]
+    // ---- right leg ----
+    ['thighR', ellipsoidAt(0.088, 0.084, 0.088), shorts, 'shorts'],
+    ['thighR', taperSeg(0.09, 0.073, 0, -0.26), shorts, 'shorts'],
+    ['thighR', taperSeg(0.073, 0.062, -0.26, -0.44), skin],
+    ['shinR', ellipsoidAt(0.06, 0.06, 0.06), skin],
+    ['shinR', taperSeg(0.064, 0.04, -0.03, -0.40), socks, 'socks'],
+    ['shinR', ellipsoidAt(0.05, 0.082, 0.056, 0, -0.13, -0.022), socks, 'socks'],
+    ['footR', ellipsoidAt(0.05, 0.04, 0.142, 0, -0.02, 0.05), boot],
+    ['footR', ellipsoidAt(0.05, 0.046, 0.05, 0, -0.005, -0.05), boot],
+    ['footR', boxAt(0.094, 0.02, 0.27, 0, -0.05, 0.05), sole]
   ].concat(hairParts(hairStyle, hair));
 }
 
