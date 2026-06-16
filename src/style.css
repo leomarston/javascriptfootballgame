@@ -358,13 +358,29 @@ body {
   70% { transform: translateX(-3px); }
 }
 
+/* ---- featured player (animated 3D canvas) ---- */
+.menu-character {
+  position: absolute;
+  left: clamp(150px, 15vw, 280px);
+  top: 9%;
+  bottom: 5%;
+  width: clamp(260px, 30vw, 480px);
+  pointer-events: none;
+}
+
+.menu-character canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 /* ---- KICK OFF cards ---- */
 .menu-cards {
   position: absolute;
-  right: clamp(28px, 3.6vw, 60px);
+  right: clamp(28px, 3vw, 56px);
   top: 50%;
   transform: translateY(-50%);
-  width: clamp(440px, 46vw, 720px);
+  width: clamp(380px, 40vw, 600px);
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-template-rows: auto auto auto;
@@ -471,10 +487,15 @@ body {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
-.card-coop { grid-column: 2; grid-row: 1; }
-.card-random { grid-column: 2; grid-row: 2; }
-.card-local { grid-column: 1; grid-row: 3; }
-.card-versus { grid-column: 2; grid-row: 3; }
+/* primary play card spans the top; the honest info cards sit below it */
+.card-local { grid-column: 1 / span 2; grid-row: 1; }
+.card-2p { grid-column: 1; grid-row: 2; }
+.card-teams { grid-column: 2; grid-row: 2; }
+.card-feat { grid-column: 1 / span 2; grid-row: 3; }
+
+/* info cards are read-only (no hover lift) */
+.card-info { cursor: default; }
+.card-info:hover { transform: none; background: rgba(24, 28, 70, 0.82); }
 
 /* highlighted, live card */
 .card-local.is-active {

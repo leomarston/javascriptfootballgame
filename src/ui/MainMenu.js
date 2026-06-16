@@ -9,6 +9,7 @@
 
 import { TEAMS } from '../config.js';
 import { facetSVG } from './lowpoly.js';
+import { MenuCharacter } from './MenuCharacter.js';
 
 const el = (tag, cls, parent, html) => {
   const e = document.createElement(tag);
@@ -57,33 +58,24 @@ export class MainMenu {
       return b;
     });
 
-    // ---- KICK OFF cards --------------------------------------------------
+    // ---- featured player, idling like a real game's front screen --------
+    const charBox = el('div', 'menu-character', root);
+    this.character = new MenuCharacter(charBox, {
+      kit: { shirt: TEAMS.HOME.primary, socks: TEAMS.HOME.primary, shorts: 0xf2f3f5 },
+      hairStyle: 'short'
+    });
+
+    // ---- KICK OFF cards: what the game actually offers ------------------
     const cards = el('section', 'menu-cards', root);
-
-    const last = el('div', 'card card-last', cards);
-    el('div', 'card-kicker', last, 'LAST PLAYED');
-    el('div', 'card-sub', last, `<b>VERSUS</b> | ${TEAMS.HOME.full} v ${TEAMS.AWAY.full}`);
-    const crests = el('div', 'card-crests', last);
-    this.crest(crests, TEAMS.HOME);
-    el('div', 'vs-badge', crests, 'VS');
-    this.crest(crests, TEAMS.AWAY);
-
-    this.card(cards, 'card-coop', 'CO-OP', 'Team up online against other users or the COM.', false);
-    this.card(cards, 'card-random', 'RANDOM SELECTION', 'Take a randomly selected squad into a match.', false);
-    this.localCard = this.card(cards, 'card-local is-active', 'LOCAL MATCH', 'Kick off a quick match against the COM.', true);
-    this.card(cards, 'card-versus', 'VERSUS', 'Face off against another player on this device.', false);
+    this.localCard = this.card(cards, 'card-local is-active', 'LOCAL MATCH', 'Pick your side, choose the teams, then kick off.', true);
+    this.card(cards, 'card-info card-2p', '1 OR 2 PLAYERS', 'Solo vs the COM, co-op, or head-to-head — sharing one keyboard.', false);
+    this.card(cards, 'card-info card-teams', '10 NATIONAL TEAMS', 'Take a top national side into the match.', false);
+    this.card(cards, 'card-info card-feat', 'FULL 11-v-11', '4-4-2 sides with a smart keeper, set-pieces and AI team-mates.', false);
 
     requestAnimationFrame(() => root.classList.add('show'));
   }
 
-  // a small club shield with the team's monogram
-  crest(parent, team) {
-    const c = el('div', 'crest', parent, `<span>${team.short[0]}</span>`);
-    c.style.setProperty('--c', '#' + team.primary.toString(16).padStart(6, '0'));
-    return c;
-  }
-
-  // a generic KICK OFF card; `live` cards start the match when clicked
+  // a KICK OFF card; `live` cards start the match flow when clicked
   card(parent, cls, title, desc, live) {
     const c = el('div', 'card ' + cls, parent);
     el('div', 'card-title', c, title);
@@ -129,6 +121,7 @@ export class MainMenu {
 
   destroy() {
     removeEventListener('keydown', this.onKey);
+    if (this.character) { this.character.dispose(); this.character = null; }
     if (this.root) this.root.remove();
     this.root = null;
   }
