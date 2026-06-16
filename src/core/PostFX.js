@@ -26,10 +26,11 @@ export class PostFX {
     if (QUALITY.bloom) {
       this.bloom = new UnrealBloomPass(
         new THREE.Vector2(size.x, size.y),
-        0.45, // strength
+        0.4, // strength
         0.7, // radius
-        0.95 // threshold — high, so only true emissives (lights/LEDs) bloom,
-        //                   never the matte painted lines
+        1.1 // threshold > 1.0, so only true HDR emissives (floodlight lamps,
+        //                  LED banks) bloom — never the floodlit white lines,
+        //                  ad-board text or kits, which sit at/below 1.0
       );
       this.composer.addPass(this.bloom);
     }
@@ -43,8 +44,10 @@ export class PostFX {
 
   setNight(isNight) {
     if (this.bloom) {
-      this.bloom.strength = isNight ? 0.85 : 0.45;
-      this.bloom.threshold = isNight ? 0.78 : 0.95;
+      // keep the threshold above 1.0 both day and night so only the actual
+      // lamps/LEDs glow; the floodlit pitch lines and boards never bloom
+      this.bloom.strength = isNight ? 0.6 : 0.35;
+      this.bloom.threshold = isNight ? 1.05 : 1.15;
     }
   }
 

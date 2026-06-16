@@ -98,7 +98,7 @@ export const TEAMS = {
 export const COLORS = {
   GRASS_DARK: 0x2c6e2f,
   GRASS_LIGHT: 0x3a8a3d,
-  LINE: 0xd7dcd4, // soft, matte chalk-white (not a glowing neon white)
+  LINE: 0xc6cbc3, // soft, matte chalk-white (kept under 1.0 so it never blooms)
   STEEL: 0xc9d2dc,
   ROOF: 0x2a2f38,
   ROOF_UNDER: 0x161a20,

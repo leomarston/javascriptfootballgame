@@ -29,7 +29,7 @@ export class AdBoards {
     const ctx = c.getContext('2d');
     const ads = [
       { t: 'ASTRA ARENA', bg: '#0b1f3a', fg: '#ffd23f' },
-      { t: 'eFOOTBALL', bg: '#0a7d2c', fg: '#f4e7b0' },
+      { t: 'ASTRA TV', bg: '#0a7d2c', fg: '#f4e7b0' },
       { t: 'THREE.JS', bg: '#111111', fg: '#22d3ee' },
       { t: 'NOVA CITY', bg: '#1769ff', fg: '#bcd6ff' },
       { t: 'ASTRA UTD', bg: '#d81f33', fg: '#ffd9a8' }
@@ -90,7 +90,7 @@ export class AdBoards {
       color: 0x070707,
       emissive: 0xffffff,
       emissiveMap: this.tex,
-      emissiveIntensity: 1.3,
+      emissiveIntensity: 0.9, // self-lit, but below the bloom threshold (no neon)
       roughness: 0.5,
       metalness: 0.2,
       side: THREE.DoubleSide
