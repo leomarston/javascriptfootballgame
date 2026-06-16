@@ -17,7 +17,7 @@ import { FieldPlayer } from './game/FieldPlayer.js';
 import { Goalkeeper } from './game/Goalkeeper.js';
 import { teamSheet } from './game/formations.js';
 import { CameraRig } from './game/CameraRig.js';
-import { Gameplay } from './game/Gameplay.js';
+import { Gameplay, SCHEMES } from './game/Gameplay.js';
 import { HUD } from './ui/HUD.js';
 import { MainMenu } from './ui/MainMenu.js';
 import { SideSelect } from './ui/SideSelect.js';
@@ -102,20 +102,9 @@ class App {
     this.scene.add(this.homeKeeper.object);
     this.scene.add(this.awayKeeper.object);
 
-    // a small ring on the pitch marking the player you currently control
-    this.selRing = new THREE.Mesh(
-      new THREE.RingGeometry(0.42, 0.56, 40),
-      new THREE.MeshBasicMaterial({
-        color: 0xffe14d,
-        transparent: true,
-        opacity: 0.85,
-        side: THREE.DoubleSide,
-        depthWrite: false
-      })
-    );
-    this.selRing.rotation.x = -Math.PI / 2;
-    this.selRing.renderOrder = 4;
-    this.scene.add(this.selRing);
+    // selection rings on the pitch — one per human controller, coloured per
+    // player (built when the match starts; up to two for couch play)
+    this.selRings = [];
 
     this.rig = new CameraRig(this.renderer.domElement, innerWidth / innerHeight);
     this.postfx = new PostFX(this.renderer, this.scene, this.rig.camera);
@@ -153,26 +142,44 @@ class App {
   openSideSelect() {
     if (this.teamSelect) { this.teamSelect.destroy(); this.teamSelect = null; }
     this.sideSelect = new SideSelect({
-      onConfirm: (side) => this.openTeamSelect(side),
+      onConfirm: (sides) => this.openTeamSelect(sides),
       onCancel: () => this.openMainMenu()
     });
   }
 
-  openTeamSelect(side) {
+  openTeamSelect(sides) {
     if (this.sideSelect) { this.sideSelect.destroy(); this.sideSelect = null; }
     this.teamSelect = new TeamSelect({
-      onConfirm: (home, away) => this.beginMatch(side, home, away),
+      onConfirm: (home, away) => this.beginMatch(sides, home, away),
       onCancel: () => this.openSideSelect()
     });
   }
 
-  beginMatch(side, homeNation, awayNation) {
+  // sides: [{ id:'P1', side:'HOME' }, { id:'P2', side:'AWAY' }] (P2 optional)
+  beginMatch(sides, homeNation, awayNation) {
     if (!this.inMenu) return;
     this.inMenu = false;
     if (this.teamSelect) { this.teamSelect.destroy(); this.teamSelect = null; }
     this.hud.root.style.display = '';
-    this.gameplay.startMatch(side, homeNation, awayNation);
+    const configs = sides.map((s) => ({ id: s.id, side: s.side, scheme: SCHEMES[s.id] }));
+    this.gameplay.startMatch(configs, homeNation, awayNation);
+    this.buildSelRings();
     this.hud.startClock();
+  }
+
+  // one ground ring per human controller, in that controller's colour
+  buildSelRings() {
+    for (const r of this.selRings) this.scene.remove(r);
+    this.selRings = this.gameplay.humans.map((h) => {
+      const ring = new THREE.Mesh(
+        new THREE.RingGeometry(0.42, 0.56, 40),
+        new THREE.MeshBasicMaterial({ color: h.ringColor, transparent: true, opacity: 0.9, side: THREE.DoubleSide, depthWrite: false })
+      );
+      ring.rotation.x = -Math.PI / 2;
+      ring.renderOrder = 4;
+      this.scene.add(ring);
+      return ring;
+    });
   }
 
   applyNight() {
@@ -215,26 +222,42 @@ class App {
     }
 
     this.gameplay.update(dt);
-    const ctrl = this.gameplay.activePlayer();
+    const humans = this.gameplay.humans;
     const sp = this.gameplay.setPieceActive();
     if (sp && sp.userControlled) {
       const spc = this.gameplay.setPieceCamInfo(); // behind the taker, looking along the aim
       this.rig.behind(dt, spc.pos, spc.dx, spc.dz);
     } else {
-      this.rig.update(dt, this.gameplay.cameraTarget()); // follows the ball after a shot
+      this.rig.update(dt, this.gameplay.cameraTarget()); // ball-focused (2P) / follows ball after a shot
     }
-    this.selRing.position.set(ctrl.position.x, 0.04, ctrl.position.z);
-    this.hud.setPlayer(this.gameplay.teamId[this.gameplay.userSide].short, ctrl.name, ctrl.label);
 
-    // power bar under the player while charging a pass / shot
-    const ci = this.gameplay.chargeInfo();
-    if (ci.active) {
-      this._proj.set(ctrl.position.x, 0.1, ctrl.position.z).project(this.rig.camera);
-      const sx = (this._proj.x * 0.5 + 0.5) * innerWidth;
-      const sy = (-this._proj.y * 0.5 + 0.5) * innerHeight + 16;
-      this.hud.setCharge(true, ci.value, ci.kind, sx, sy);
+    // one selection ring + name tag per controller
+    for (let i = 0; i < this.selRings.length; i++) {
+      const h = humans[i];
+      const a = this.gameplay.humanActivePlayer(h);
+      this.selRings[i].position.set(a.position.x, 0.04, a.position.z);
+    }
+    const a0 = this.gameplay.humanActivePlayer(humans[0]);
+    this.hud.setPlayer(this.gameplay.teamId[humans[0].side].short, a0.name, a0.label);
+    if (humans[1]) {
+      const a1 = this.gameplay.humanActivePlayer(humans[1]);
+      this.hud.setPlayer2(this.gameplay.teamId[humans[1].side].short, a1.name, a1.label, humans[1].ringColor);
     } else {
-      this.hud.setCharge(false);
+      this.hud.setPlayer2(null);
+    }
+
+    // power bars under each charging player (and the set-piece taker)
+    const bars = this.gameplay.chargeInfos();
+    for (let i = 0; i < 2; i++) {
+      const b = bars[i];
+      if (b) {
+        this._proj.set(b.player.position.x, 0.1, b.player.position.z).project(this.rig.camera);
+        const sx = (this._proj.x * 0.5 + 0.5) * innerWidth;
+        const sy = (-this._proj.y * 0.5 + 0.5) * innerHeight + 16;
+        this.hud.setCharge(i, true, b.value, b.kind, sx, sy);
+      } else {
+        this.hud.setCharge(i, false);
+      }
     }
 
     this.stadium.update(dt);

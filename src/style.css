@@ -115,6 +115,13 @@ body {
   backdrop-filter: blur(10px);
 }
 
+/* P2's tag sits bottom-right with their ring colour as the border accent */
+.playertag.p2 {
+  left: auto;
+  right: 18px;
+  border-width: 2px;
+}
+
 /* ---------- charge bar ---------- */
 .chargebar {
   position: absolute;
@@ -540,129 +547,96 @@ body {
   filter: saturate(1.1);
 }
 
-/* central board */
-.ss-panel {
+/* three-zone board: Home | Not Playing | Away */
+.ss-board {
   position: absolute;
   left: 50%;
   top: 49%;
   transform: translate(-50%, -50%);
-  width: min(86vw, 1240px);
-  height: min(80vh, 760px);
-  border-radius: 10px;
+  width: min(90vw, 1280px);
+  height: min(74vh, 680px);
+  display: flex;
+  gap: clamp(10px, 1.6vw, 22px);
+}
+
+.ss-zone {
+  flex: 1;
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  border: 2px solid rgba(150, 162, 235, 0.18);
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-.ss-head {
-  display: flex;
-  background: #161033;
-  padding: clamp(10px, 1.5vh, 20px) clamp(20px, 3vw, 52px);
-}
+.ss-zone.off { flex: 0.7; }
+.ss-zone.has { border-color: rgba(255, 225, 77, 0.55); background: linear-gradient(180deg, rgba(255, 225, 77, 0.1), rgba(255, 255, 255, 0.04)); }
 
-.ss-head-cell {
-  flex: 1;
+.ss-zone-title {
+  text-align: center;
   font-weight: 800;
-  font-size: clamp(22px, 2.6vw, 40px);
-  letter-spacing: 0.01em;
+  font-size: clamp(16px, 1.9vw, 30px);
+  letter-spacing: 0.1em;
+  padding: clamp(10px, 1.5vh, 20px);
+  background: rgba(11, 14, 40, 0.5);
 }
 
-.ss-head-cell.home { text-align: left; cursor: pointer; }
-.ss-head-cell.away { text-align: right; cursor: pointer; }
-.ss-head-cell.mid { flex: 0.7; }
+.ss-zone.off .ss-zone-title { font-size: clamp(12px, 1.3vw, 19px); color: #aeb6dd; }
 
-.ss-grid {
+.ss-zone-slots {
   flex: 1;
-  background: linear-gradient(180deg, #d7d9e6 0%, #c9ccdc 100%);
   display: flex;
   flex-direction: column;
-}
-
-.ss-row {
-  flex: 1;
-  display: flex;
   align-items: center;
-  border-bottom: 1px solid rgba(120, 124, 150, 0.35);
-  padding: 0 clamp(20px, 3vw, 52px);
+  gap: clamp(10px, 1.6vh, 22px);
+  padding: clamp(14px, 2.4vh, 30px) 0;
 }
-
-.ss-row:last-child { border-bottom: 0; }
-
-.ss-cell {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.ss-cell.home { justify-content: flex-start; cursor: pointer; }
-.ss-cell.away { justify-content: flex-end; cursor: pointer; }
-.ss-cell.mid { flex: 0.7; }
 
 /* gamepad silhouette */
 .pad {
-  width: clamp(48px, 5vw, 78px);
+  width: clamp(48px, 5vw, 80px);
   height: auto;
   line-height: 0;
 }
 
 .pad svg { width: 100%; height: 100%; display: block; }
 .pad path,
-.pad circle { fill: #abafc2; }
+.pad circle { fill: #6b7194; }
+
+.pad.ghost { opacity: 0.32; }
 
 .pad.active path { fill: #1b1f36; stroke: #34e0ff; stroke-width: 3; }
 .pad.active circle { fill: #34e0ff; }
 .pad.active { filter: drop-shadow(0 0 7px rgba(52, 224, 255, 0.6)); }
 
-/* the player's own token (name + highlighted pad + chevron) */
-.token {
-  display: none;
+/* a controller token (label + highlighted pad + side caption) */
+.ss-token {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: clamp(8px, 1vw, 16px);
+  gap: 4px;
+  order: -1; /* tokens sit above the decorative ghosts */
 }
 
-.token-body { text-align: center; }
-
-.token-name {
-  font-weight: 700;
-  font-size: clamp(13px, 1.3vw, 20px);
-  color: #1b1f36;
-  margin-bottom: 2px;
-}
-
-.token-team {
-  margin-top: 3px;
-  font-weight: 700;
-  font-size: clamp(10px, 0.95vw, 14px);
-  letter-spacing: 0.08em;
-  color: #2a3aa0;
-}
-
-.token.away .token-team { color: #2f6df6; }
-
-.chev {
-  font-size: clamp(26px, 2.6vw, 40px);
+.ss-token-name {
   font-weight: 800;
-  color: #1fae6e;
-  line-height: 1;
+  font-size: clamp(14px, 1.4vw, 22px);
+  letter-spacing: 0.04em;
 }
 
-/* show the token on the chosen side, the ghost silhouette on the other */
-.ss.side-home .ss-cell.home .token.home { display: flex; }
-.ss.side-home .ss-cell.home .pad.ghost { display: none; }
-.ss.side-home .ss-cell.away .pad.ghost { display: block; }
-.ss.side-home .ss-cell.away .token.away { display: none; }
+.ss-token.p1 .ss-token-name { color: #ffe14d; }
+.ss-token.p2 .ss-token-name { color: #34e0ff; }
+.ss-token.p1 .pad.active path { stroke: #ffe14d; }
+.ss-token.p1 .pad.active circle { fill: #ffe14d; }
+.ss-token.p1 .pad.active { filter: drop-shadow(0 0 7px rgba(255, 225, 77, 0.6)); }
 
-.ss.side-away .ss-cell.away .token.away { display: flex; }
-.ss.side-away .ss-cell.away .pad.ghost { display: none; }
-.ss.side-away .ss-cell.home .pad.ghost { display: block; }
-.ss.side-away .ss-cell.home .token.home { display: none; }
-
-/* highlight the chosen header */
-.ss.side-home .ss-head-cell.home,
-.ss.side-away .ss-head-cell.away { color: #ffe14d; }
+.ss-token-cap {
+  font-weight: 600;
+  font-size: clamp(11px, 1vw, 15px);
+  color: #cdd3f0;
+}
 
 /* controller hint bar */
 .ss-hints {

@@ -123,19 +123,33 @@ every asset generated procedurally in code.
 
 ## 🎮 Controls
 
+After loading you get the **menu → choose your side(s) → pick the teams → kick
+off**. On the side-select board, **P1** drops into Home or Away and **P2** into
+Home, Away or *Not Playing*: same side is **co-op**, opposite sides is **versus**,
+P2 *Not Playing* is a solo game. In couch play the camera centres on the ball,
+each player has their own coloured selection ring, and the two never control the
+same footballer.
+
+| Action | Player 1 | Player 2 |
+| --- | --- | --- |
+| Move (camera-relative) | **W A S D** (+ Arrows, solo) | **Arrow keys** |
+| Sprint | **Left Shift** | **/** |
+| Pass (hold for power) / **Tackle** | **Space** | **.** |
+| Shoot (hold, capped) | **J** | **L** |
+| Cross into the box | **K** | **O** |
+| Slide tackle | **X** | **,** |
+| Switch player (press again to step further) | **Q** | **P** |
+
 | Input | Action |
 | --- | --- |
-| **W A S D / Arrows** | Move (camera‑relative) |
-| **Shift** | Sprint |
-| **Space** | With the ball: **pass** (hold for power). Defending: **tackle** |
-| **J** | Shoot — hold for power, auto‑aimed (capped, so own‑half pot‑shots won't carry) |
-| **K** | Cross / lofted ball into the box |
-| **X** | Slide tackle (defending) |
-| **Q** | Switch player — nearest to the ball; press again to step further |
 | **R** | Reset to kickoff |
 | **C** | Cycle camera (Broadcast · Follow · Aerial · Free) |
 | **N** | Toggle day / night |
 | **Free cam** | Drag to orbit, scroll to zoom |
+
+> On a set-piece the side taking it is controlled by *its own* player, with their
+> left/right keys setting the angle — so in versus each player takes their own
+> corners and goal kicks.
 
 ---
 

@@ -48,6 +48,15 @@ const SIDE_FACTOR = 0.34; // lateral compactness toward the ball
 const PUSH = { DF: 3, MF: 6, FW: 10 }; // extra metres forward in possession
 const DROP = { DF: 6, MF: 5, FW: 3 }; // metres dropped when defending
 
+// Couch-play control schemes (one per human). Keys are distinct so two players
+// share a keyboard: P1 on the left (WASD + space/J/K/X/Q), P2 on the right
+// (arrows + a right-hand cluster). Movement is camera-relative for both.
+export const SCHEMES = {
+  P1: { up: 'w', down: 's', left: 'a', right: 'd', sprint: 'shift', action: ' ', shoot: 'j', cross: 'k', slide: 'x', switch: 'q' },
+  P2: { up: 'arrowup', down: 'arrowdown', left: 'arrowleft', right: 'arrowright', sprint: '/', action: '.', shoot: 'l', cross: 'o', slide: ',', switch: 'p' }
+};
+export const RING_COLORS = { P1: 0xffe14d, P2: 0x34e0ff };
+
 const HL = FIELD.HALF_LENGTH;
 const HW = FIELD.HALF_WIDTH;
 
@@ -73,24 +82,15 @@ export class Gameplay {
     };
     this.active = false; // match input/clock are off until the menu kicks off
     this.keys = new Set();
-    this.controlled = 0;
+    this.humans = []; // 1 or 2 human controllers, set up at kickoff
     this.ballOwner = null;
     this.lastTouchTeam = 'HOME'; // who touched it last (for throw-ins)
     this.kickCooldown = 0;
     this.celebrateT = 0;
-    this.passTarget = null;
-    this.passTimer = 0;
-    this.switchLock = 0;
-    this.passCharging = false;
-    this.passCharge = 0;
-    this.shotCharging = false;
-    this.shotCharge = 0;
     this.shotCam = 0; // briefly follow the ball after a shot
     this.kickoffT = 0; // brief lined-up pause before play starts
     this.kickoffTaker = null;
     this.setPiece = null; // active corner / goal kick
-    this.switchRank = 0; // how far down the proximity list Q has stepped
-    this.lastSwitchT = 0;
     this.presser = {};
     this.cover = {};
     this.support = {};
@@ -103,23 +103,44 @@ export class Gameplay {
     this._assist = new THREE.Vector3();
     this._camTarget = { position: new THREE.Vector3(), velocity: new THREE.Vector3() };
 
-    this.applyUserSide('HOME'); // default; the side-select screen can flip this
+    this.setupHumans([{ id: 'P1', side: 'HOME', scheme: SCHEMES.P1 }]); // default solo
     this.bind();
     this.kickoff();
   }
 
-  // Which side the human plays. Everything user-relative — the player you
-  // control, where your pass/shoot/cross aim, who takes "your" set-pieces and
-  // who kicks off — keys off this, NOT a hardcoded HOME. Scoring and restarts
-  // stay physical (the +X goal is always a HOME goal), so they need no change.
-  applyUserSide(side) {
-    this.userSide = side; // 'HOME' | 'AWAY'
-    this.userTeam = side === 'HOME' ? this.home : this.away; // your outfielders
-    this.oppTeam = side === 'HOME' ? this.away : this.home;
-    this.userKeeper = side === 'HOME' ? this.homeKeeper : this.awayKeeper;
-    this.userSign = ATTACK_SIGN[side]; // +1 attacks +X, -1 attacks -X
-    this.userAttackX = this.userSign * HL; // the goal you're shooting at
+  // Build the human controllers from a list of { id, side, scheme }. Each owns
+  // its own side, control index, switch/charge state and ring colour. Two on the
+  // same side is co-op (they control different players); opposite sides is
+  // versus. Everything that used to be "the user" is now per-controller, keyed
+  // off the controlled player's team — so scoring/restarts stay physical.
+  setupHumans(configs) {
+    const list = configs && configs.length ? configs : [{ id: 'P1', side: 'HOME', scheme: SCHEMES.P1 }];
+    const self = this;
+    this.humans = list.map((c) => ({
+      id: c.id,
+      side: c.side,
+      scheme: c.scheme,
+      team: c.side === 'HOME' ? self.home : self.away,
+      sign: ATTACK_SIGN[c.side],
+      attackX: ATTACK_SIGN[c.side] * HL,
+      ringColor: RING_COLORS[c.id] != null ? RING_COLORS[c.id] : 0xffe14d,
+      controlled: 0,
+      switchLock: 0,
+      switchRank: 0,
+      lastSwitchT: 0,
+      passTarget: null,
+      passTimer: 0,
+      passCharging: false,
+      passCharge: 0,
+      shotCharging: false,
+      shotCharge: 0,
+      player() { return this.team[this.controlled]; }
+    }));
   }
+
+  // back-compat convenience: the "primary" human (used by the single-player
+  // camera lean and the controlledPlayer() helper).
+  get userSide() { return this.humans[0] ? this.humans[0].side : 'HOME'; }
 
   // --- input --------------------------------------------------------------
 
@@ -129,81 +150,89 @@ export class Gameplay {
       const k = e.key.toLowerCase();
       this.keys.add(k);
       if (e.repeat) return;
-      if (k === 'r') this.kickoff();
-      else if (k === 'q') this.manualSwitch();
-      else this.actionDown(k);
+      if (k === 'r') { this.kickoff(); return; }
+      for (const h of this.humans) {
+        const s = h.scheme;
+        if (k === s.switch) { this.manualSwitch(h); return; }
+        if (k === s.action) { this.onAction(h, 'action', true); return; }
+        if (k === s.shoot) { this.onAction(h, 'shoot', true); return; }
+        if (k === s.cross) { this.onAction(h, 'cross', true); return; }
+        if (k === s.slide) { this.onAction(h, 'slide', true); return; }
+      }
     });
     addEventListener('keyup', (e) => {
       if (!this.active) return;
       const k = e.key.toLowerCase();
       this.keys.delete(k);
-      this.actionUp(k);
+      for (const h of this.humans) {
+        const s = h.scheme;
+        if (k === s.action) { this.onAction(h, 'action', false); return; }
+        if (k === s.shoot) { this.onAction(h, 'shoot', false); return; }
+      }
     });
   }
 
-  actionDown(k) {
+  // One controller pressed/released an action key.
+  onAction(h, kind, down) {
     if (this.celebrateT > 0 || this.kickoffT > 0) return;
     if (this.setPiece) {
-      if (this.setPiece.userControlled && (k === ' ' || k === 'j')) {
-        this.setPiece.charging = true;
-        this.setPiece.charge = 0;
+      if (this.setPiece.controller === h && (kind === 'action' || kind === 'shoot')) {
+        if (down) { this.setPiece.charging = true; this.setPiece.charge = 0; }
+        else if (this.setPiece.charging) this.takeSetPiece(this.setPiece.aim, this.setPiece.charge);
       }
       return;
     }
-    const me = this.controlledPlayer();
+    const me = h.player();
     if (me.busy) return;
     if (this.ballOwner === me) {
-      if (k === ' ') { this.passCharging = true; this.passCharge = 0; }
-      else if (k === 'j') { this.shotCharging = true; this.shotCharge = 0; }
-      else if (k === 'k') this.cross(me);
-    } else {
-      if (k === ' ') me.startTackle();
-      else if (k === 'x') me.startSlide();
-    }
-  }
-
-  actionUp(k) {
-    if (this.setPiece) {
-      if (this.setPiece.userControlled && (k === ' ' || k === 'j') && this.setPiece.charging) {
-        this.takeSetPiece(this.setPiece.aim, this.setPiece.charge);
+      if (kind === 'action') {
+        if (down) { h.passCharging = true; h.passCharge = 0; }
+        else if (h.passCharging) { h.passCharging = false; this.pass(me, h.passCharge, h); h.passCharge = 0; }
+      } else if (kind === 'shoot') {
+        if (down) { h.shotCharging = true; h.shotCharge = 0; }
+        else if (h.shotCharging) { h.shotCharging = false; this.shoot(me, h.shotCharge); h.shotCharge = 0; }
+      } else if (kind === 'cross' && down) {
+        this.cross(me, h);
       }
-      return;
-    }
-    const me = this.controlledPlayer();
-    if (k === ' ' && this.passCharging) {
-      this.passCharging = false;
-      if (this.ballOwner === me && !me.busy) this.pass(me, this.passCharge);
-      this.passCharge = 0;
-    } else if (k === 'j' && this.shotCharging) {
-      this.shotCharging = false;
-      if (this.ballOwner === me && !me.busy) this.shoot(me, this.shotCharge);
-      this.shotCharge = 0;
+    } else if (down) {
+      if (kind === 'action') me.startTackle();
+      else if (kind === 'slide') me.startSlide();
     }
   }
 
   // A fresh press picks the player nearest the ball; pressing again quickly
   // (insisting) steps to the next-nearest, so you only reach far players if you
-  // really keep asking for them.
-  manualSwitch() {
+  // really keep asking for them. A co-op partner's player is never offered.
+  manualSwitch(h) {
     if (this.celebrateT > 0) return;
-    const order = this.userTeam
+    const mates = this.partnerHeld(h);
+    const order = h.team
       .map((p, i) => i)
-      .sort((a, b) => this.horiz(this.userTeam[a].position, this.ball.position)
-        - this.horiz(this.userTeam[b].position, this.ball.position));
+      .filter((i) => !mates.has(i))
+      .sort((a, b) => this.horiz(h.team[a].position, this.ball.position)
+        - this.horiz(h.team[b].position, this.ball.position));
+    if (!order.length) return;
     const now = Date.now() / 1000;
-    let rank = now - this.lastSwitchT < 0.7 ? this.switchRank + 1 : 0;
+    let rank = now - h.lastSwitchT < 0.7 ? h.switchRank + 1 : 0;
     rank = THREE.MathUtils.clamp(rank, 0, order.length - 1);
-    if (order[rank] === this.controlled) rank = Math.min(rank + 1, order.length - 1);
-    this.controlled = order[rank];
-    this.switchRank = rank;
-    this.lastSwitchT = now;
-    this.switchLock = 1.0;
-    this.passTarget = null;
-    this.passTimer = 0;
+    if (order[rank] === h.controlled) rank = Math.min(rank + 1, order.length - 1);
+    h.controlled = order[rank];
+    h.switchRank = rank;
+    h.lastSwitchT = now;
+    h.switchLock = 1.0;
+    h.passTarget = null;
+    h.passTimer = 0;
+  }
+
+  // indices controlled by this human's co-op partner(s) on the same side
+  partnerHeld(h) {
+    const set = new Set();
+    for (const o of this.humans) if (o !== h && o.side === h.side) set.add(o.controlled);
+    return set;
   }
 
   controlledPlayer() {
-    return this.userTeam[this.controlled];
+    return this.humans[0].player();
   }
 
   // Subtly bend the player's run toward a nearby loose ball — but only while
@@ -228,18 +257,31 @@ export class Gameplay {
     return this._assist.set(mx * (1 - k) + tbx * k, 0, mz * (1 - k) + tbz * k);
   }
 
-  inputDir() {
+  // Camera-relative movement for one controller. When a single human is playing,
+  // they also get the arrow keys (so solo play keeps WASD + arrows as before).
+  inputDir(h) {
     this.rig.camera.getWorldDirection(this._fwd);
     this._fwd.y = 0;
     if (this._fwd.lengthSq() < 1e-4) this._fwd.set(0, 0, 1);
     this._fwd.normalize();
     this._right.crossVectors(this._fwd, this._up).normalize();
     this._dir.set(0, 0, 0);
-    if (this.keys.has('w') || this.keys.has('arrowup')) this._dir.add(this._fwd);
-    if (this.keys.has('s') || this.keys.has('arrowdown')) this._dir.sub(this._fwd);
-    if (this.keys.has('d') || this.keys.has('arrowright')) this._dir.add(this._right);
-    if (this.keys.has('a') || this.keys.has('arrowleft')) this._dir.sub(this._right);
+    const s = h.scheme;
+    const solo = this.humans.length === 1;
+    const k = this.keys;
+    const up = k.has(s.up) || (solo && k.has('arrowup'));
+    const down = k.has(s.down) || (solo && k.has('arrowdown'));
+    const right = k.has(s.right) || (solo && k.has('arrowright'));
+    const left = k.has(s.left) || (solo && k.has('arrowleft'));
+    if (up) this._dir.add(this._fwd);
+    if (down) this._dir.sub(this._fwd);
+    if (right) this._dir.add(this._right);
+    if (left) this._dir.sub(this._right);
     return this._dir;
+  }
+
+  sprintHeld(h) {
+    return this.keys.has(h.scheme.sprint);
   }
 
   // --- main update --------------------------------------------------------
@@ -247,9 +289,11 @@ export class Gameplay {
   update(dt) {
     this.kickCooldown = Math.max(0, this.kickCooldown - dt);
     this.shotCam = Math.max(0, this.shotCam - dt);
-    if (this.passTimer > 0) this.passTimer = Math.max(0, this.passTimer - dt);
-    if (this.passCharging) this.passCharge = Math.min(1, this.passCharge + dt / 0.6);
-    if (this.shotCharging) this.shotCharge = Math.min(1, this.shotCharge + dt / 0.75);
+    for (const h of this.humans) {
+      if (h.passTimer > 0) h.passTimer = Math.max(0, h.passTimer - dt);
+      if (h.passCharging) h.passCharge = Math.min(1, h.passCharge + dt / 0.6);
+      if (h.shotCharging) h.shotCharge = Math.min(1, h.shotCharge + dt / 0.75);
+    }
 
     if (this.kickoffT > 0) {
       this.kickoffT -= dt;
@@ -278,17 +322,24 @@ export class Gameplay {
     this.precomputeRoles();
     this.resolveControl(dt);
 
-    const me = this.controlledPlayer();
-    if ((this.passCharging || this.shotCharging) && this.ballOwner !== me) {
-      this.passCharging = false;
-      this.shotCharging = false;
-      this.passCharge = 0;
-      this.shotCharge = 0;
+    // cancel a charge if that controller no longer has the ball
+    for (const h of this.humans) {
+      if ((h.passCharging || h.shotCharging) && this.ballOwner !== h.player()) {
+        h.passCharging = false; h.shotCharging = false; h.passCharge = 0; h.shotCharge = 0;
+      }
     }
     for (const a of this.field) a.carrying = a === this.ballOwner; // 15% slower on the ball
-    me.update(dt, this._assistDir(me, this.inputDir()), this.keys.has('shift'));
+
+    // each human drives their player; everyone else is AI
+    const driven = new Set();
+    for (const h of this.humans) {
+      const me = h.player();
+      if (driven.has(me)) continue; // safety: never drive one player from two pads
+      driven.add(me);
+      me.update(dt, this._assistDir(me, this.inputDir(h)), this.sprintHeld(h));
+    }
     for (const a of this.field) {
-      if (a === me) continue;
+      if (driven.has(a)) continue;
       const intent = this.aiIntent(a);
       a.update(dt, intent.dir, intent.sprint);
     }
@@ -352,18 +403,54 @@ export class Gameplay {
   }
 
   resolveControl(dt) {
-    this.switchLock = Math.max(0, this.switchLock - dt);
+    for (const h of this.humans) h.switchLock = Math.max(0, h.switchLock - dt);
+    for (const side of ['HOME', 'AWAY']) {
+      const hs = this.humans.filter((h) => h.side === side);
+      if (hs.length) this.assignTeamControl(side, hs);
+    }
+  }
+
+  // Decide which player each human on a side controls — guaranteeing two co-op
+  // controllers never share one player. The ball carrier goes to the controller
+  // already on it (or nearest); a pass-and-go receiver is honoured; everyone
+  // else takes their nearest free team-mate (held ≥1s so it doesn't flicker).
+  assignTeamControl(side, hs) {
+    const team = this.teamArr(side);
     const owner = this.ballOwner;
-    if (owner && owner.team === this.userSide && this.userTeam.includes(owner)) {
-      this.controlled = this.userTeam.indexOf(owner);
-    } else if (this.passTarget && this.passTimer > 0) {
-      this.controlled = this.userTeam.indexOf(this.passTarget);
-    } else if (this.switchLock <= 0) {
-      const n = this.nearestIndex(this.userTeam, this.ball.position);
-      if (n !== this.controlled) {
-        this.controlled = n;
-        this.switchLock = 1.0;
+    const ownerOnTeam = owner && owner.team === side && team.includes(owner);
+    const taken = new Set();
+    const assigned = new Set();
+
+    // pass-and-go: lock onto the receiver while the pass is live
+    for (const h of hs) {
+      if (h.passTarget && h.passTimer > 0) {
+        const idx = team.indexOf(h.passTarget);
+        if (idx >= 0 && !taken.has(idx)) { h.controlled = idx; taken.add(idx); assigned.add(h); }
       }
+    }
+
+    // the carrier goes to whoever's already on it, else the nearest controller
+    if (ownerOnTeam) {
+      const ownerIdx = team.indexOf(owner);
+      if (!taken.has(ownerIdx)) {
+        const cand = hs.filter((h) => !assigned.has(h));
+        let carrier = cand.find((h) => h.controlled === ownerIdx);
+        if (!carrier && cand.length) {
+          carrier = cand.slice().sort((a, b) =>
+            this.horiz(a.player().position, this.ball.position) - this.horiz(b.player().position, this.ball.position))[0];
+        }
+        if (carrier) { carrier.controlled = ownerIdx; taken.add(ownerIdx); assigned.add(carrier); }
+      }
+    }
+
+    // remaining controllers: nearest free team-mate, respecting the switch lock
+    for (const h of hs) {
+      if (assigned.has(h)) continue;
+      if (h.switchLock > 0 && !taken.has(h.controlled)) { taken.add(h.controlled); continue; }
+      const idx = this.nearestIndexExcluding(team, this.ball.position, taken);
+      if (idx < 0) { taken.add(h.controlled); continue; }
+      if (idx !== h.controlled) { h.controlled = idx; h.switchLock = 1.0; }
+      taken.add(h.controlled);
     }
   }
 
@@ -562,12 +649,12 @@ export class Gameplay {
 
   resolveLoose() {
     for (const a of this.field) this.bodyCollide(a);
-    const ctrl = this.controlledPlayer();
+    const human = new Set(this.humans.map((h) => h.player()));
     let best = null;
     let bd = Infinity;
     for (const a of this.field) {
       if (a.captureCooldown > 0 || a.busy) continue;
-      const cap = a === ctrl ? CAPTURE_RADIUS + CONTROLLED_CAPTURE_BONUS : CAPTURE_RADIUS;
+      const cap = human.has(a) ? CAPTURE_RADIUS + CONTROLLED_CAPTURE_BONUS : CAPTURE_RADIUS;
       const d = this.horiz(a.position, this.ball.position);
       if (d < cap && this.ball.position.y < CAPTURE_MAX_Y && d < bd) { best = a; bd = d; }
     }
@@ -602,9 +689,13 @@ export class Gameplay {
     this.setOwner(thrower);
     thrower.captureCooldown = 0;
     this.lastTouchTeam = team;
-    if (team === this.userSide) {
-      this.controlled = this.userTeam.indexOf(thrower);
-      this.switchLock = 1.0;
+    // hand the throw to a human on that side (the nearest, in co-op)
+    const hs = this.humans.filter((h) => h.side === team);
+    if (hs.length) {
+      const h = hs.sort((a, b) => this.horiz(a.player().position, thrower.position)
+        - this.horiz(b.player().position, thrower.position))[0];
+      h.controlled = team === 'HOME' ? this.home.indexOf(thrower) : this.away.indexOf(thrower);
+      h.switchLock = 1.0;
     }
   }
 
@@ -670,7 +761,7 @@ export class Gameplay {
     let bestScore = -Infinity;
     let nearest = null;
     let nd = Infinity;
-    for (const m of this.userTeam) {
+    for (const m of this.teamArr(me.team)) {
       if (m === me) continue;
       const dx = m.position.x - me.position.x;
       const dz = m.position.z - me.position.z;
@@ -684,7 +775,7 @@ export class Gameplay {
     return best || nearest;
   }
 
-  pass(me, charge = 0.5) {
+  pass(me, charge = 0.5, h = null) {
     const mate = this.choosePassTarget(me);
     if (!mate) return;
     const power = THREE.MathUtils.lerp(10.5, 27, charge);
@@ -695,7 +786,7 @@ export class Gameplay {
     const dz = tz - this.ball.position.z;
     const d = Math.hypot(dx, dz) || 1;
     this.releaseBall(me, (dx / d) * power, 0.5, (dz / d) * power);
-    this.handOverTo(mate);
+    this.handOverTo(mate, h);
   }
 
   // Goes where the PLAYER faces — only a small goal-assist that fades with
@@ -704,7 +795,7 @@ export class Gameplay {
   shoot(me, charge = 1) {
     const bx = this.ball.position.x;
     const bz = this.ball.position.z;
-    const dx = this.userAttackX - bx;
+    const dx = ATTACK_SIGN[me.team] * HL - bx; // toward the goal me's team attacks
     const dz = 0 - bz;
     const dist = Math.hypot(dx, dz) || 1;
     const near = THREE.MathUtils.clamp((dist - 6) / 26, 0, 1); // 0 close, 1 far
@@ -726,11 +817,17 @@ export class Gameplay {
     this.shotCam = 1.6; // watch the ball, not the shooter
   }
 
-  // The camera always keeps the ball in frame: it centres near the ball, leaning
-  // toward your player, but never further than CAM_LEAN from the ball. Right
-  // after a shot it sits almost fully on the ball so you can watch the effort.
+  // The camera always keeps the ball in frame. Solo, it leans toward your
+  // player (capped at CAM_LEAN). With two controllers (especially versus, where
+  // they can be far apart) it centres on the ball instead — the one focal point
+  // both players' action revolves around — so neither gets pushed off-screen.
   cameraTarget() {
     const ball = this.ball.position;
+    if (this.humans.length >= 2) {
+      this._camTarget.position.set(ball.x, 0, ball.z);
+      this._camTarget.velocity.set(this.ball.velocity.x, 0, this.ball.velocity.z);
+      return this._camTarget;
+    }
     const me = this.controlledPlayer().position;
     const f = this.shotCam > 0 ? 0.15 : 0.5;
     let ox = (me.x - ball.x) * f;
@@ -745,19 +842,32 @@ export class Gameplay {
     return this._camTarget;
   }
 
-  // Charge state for the on-screen power bar while passing / shooting / set-piece.
-  chargeInfo() {
-    if (this.setPiece && this.setPiece.charging) return { active: true, value: this.setPiece.charge, kind: 'shot' };
-    if (this.shotCharging) return { active: true, value: this.shotCharge, kind: 'shot' };
-    if (this.passCharging) return { active: true, value: this.passCharge, kind: 'pass' };
-    return { active: false, value: 0, kind: '' };
+  // Power-bar state per controller (and the set-piece taker) for the on-screen
+  // charge bars; each entry knows the player to draw under.
+  chargeInfos() {
+    const out = [];
+    if (this.setPiece && this.setPiece.charging) {
+      out.push({ value: this.setPiece.charge, kind: 'shot', player: this.setPiece.taker });
+    }
+    for (const h of this.humans) {
+      if (h.shotCharging) out.push({ value: h.shotCharge, kind: 'shot', player: h.player() });
+      else if (h.passCharging) out.push({ value: h.passCharge, kind: 'pass', player: h.player() });
+    }
+    return out;
   }
 
   keeperOf(team) {
     return team === 'HOME' ? this.homeKeeper : this.awayKeeper;
   }
 
-  // The player to follow / ring / name — the set-piece taker if you're taking one.
+  // The player each human follows / rings — the set-piece taker if they're
+  // taking one, otherwise their controlled player.
+  humanActivePlayer(h) {
+    if (this.setPiece && this.setPiece.controller === h) return this.setPiece.taker;
+    return h.player();
+  }
+
+  // back-compat single-player accessor (camera lean / ring fallback)
   activePlayer() {
     if (this.setPiece && this.setPiece.userControlled) return this.setPiece.taker;
     return this.controlledPlayer();
@@ -773,11 +883,12 @@ export class Gameplay {
     return { pos: sp.taker.position, dx: Math.sin(sp.aim), dz: Math.cos(sp.aim) };
   }
 
-  cross(me) {
-    const s = this.userSign;
+  cross(me, h = null) {
+    const s = ATTACK_SIGN[me.team]; // toward me's attacking half
+    const attackX = s * HL;
     let mate = null;
     let bestAhead = -Infinity;
-    for (const m of this.userTeam) {
+    for (const m of this.teamArr(me.team)) {
       if (m === me) continue;
       const ahead = m.position.x * s; // how far up your attacking half they are
       if (ahead > 25 && ahead > bestAhead) { bestAhead = ahead; mate = m; }
@@ -788,24 +899,28 @@ export class Gameplay {
       tx = mate.position.x;
       tz = mate.position.z;
     } else {
-      tx = this.userAttackX - s * 9;
+      tx = attackX - s * 9;
       tz = me.position.z > 0 ? -3.5 : 3.5;
     }
-    const near = this.userAttackX - s * 4; // edge nearest the goal line
-    const far = this.userAttackX - s * 16; // edge of the box
+    const near = attackX - s * 4; // edge nearest the goal line
+    const far = attackX - s * 16; // edge of the box
     tx = THREE.MathUtils.clamp(tx, Math.min(near, far), Math.max(near, far));
     tz = THREE.MathUtils.clamp(tz, -18, 18);
     const T = 1.15;
     const dx = tx - this.ball.position.x;
     const dz = tz - this.ball.position.z;
     this.releaseBall(me, dx / T, 0.5 * GRAVITY * T, dz / T);
-    if (mate) this.handOverTo(mate);
+    if (mate) this.handOverTo(mate, h);
   }
 
-  handOverTo(mate) {
-    this.passTarget = mate;
-    this.passTimer = 2.0;
-    this.controlled = this.userTeam.indexOf(mate);
+  // Switch the passing controller's control to the receiver while the pass is
+  // in flight (so you follow your pass). With no controller it just records the
+  // intended receiver (used by AI passes is handled separately).
+  handOverTo(mate, h = null) {
+    if (!h) return;
+    h.passTarget = mate;
+    h.passTimer = 2.0;
+    h.controlled = h.team.indexOf(mate);
   }
 
   // --- helpers ------------------------------------------------------------
@@ -813,8 +928,7 @@ export class Gameplay {
   setOwner(o) {
     this.ballOwner = o;
     if (o) {
-      this.passTarget = null;
-      this.passTimer = 0;
+      for (const h of this.humans) { h.passTarget = null; h.passTimer = 0; }
     }
   }
 
@@ -834,6 +948,19 @@ export class Gameplay {
     let bi = 0;
     let bd = Infinity;
     for (let i = 0; i < arr.length; i++) {
+      const d = this.horiz(arr[i].position, pos);
+      if (d < bd) { bd = d; bi = i; }
+    }
+    return bi;
+  }
+
+  // nearest player index to pos, skipping any indices in `exclude` (so two
+  // co-op controllers never land on the same player). -1 if all excluded.
+  nearestIndexExcluding(arr, pos, exclude) {
+    let bi = -1;
+    let bd = Infinity;
+    for (let i = 0; i < arr.length; i++) {
+      if (exclude.has(i)) continue;
       const d = this.horiz(arr[i].position, pos);
       if (d < bd) { bd = d; bi = i; }
     }
@@ -894,9 +1021,10 @@ export class Gameplay {
     keeper.reset();
     keeper.position.set(side * (HL - 5.5), 0, 0); // out of the goal area to take it
     const aim = Math.atan2(-side, 0); // face up the pitch, away from our own goal
+    const controller = this.humans.find((h) => h.side === team) || null;
     this.setPiece = {
       type: 'goalkick', team, taker: keeper, aim, aimMin: aim - 1.0, aimMax: aim + 1.0,
-      charge: 0, charging: false, userControlled: team === this.userSide, t: 0
+      charge: 0, charging: false, userControlled: !!controller, controller, t: 0
     };
     this.ballOwner = null;
     this.positionSetPieceBall();
@@ -910,9 +1038,10 @@ export class Gameplay {
     taker.reset(side * (HL - 0.5), cz * (HW - 0.5), 0);
     const aim = Math.atan2(gx - taker.position.x, 0 - taker.position.z); // toward the goal mouth
     taker.heading = aim;
+    const controller = this.humans.find((h) => h.side === team) || null;
     this.setPiece = {
       type: 'corner', team, taker, aim, aimMin: aim - 0.9, aimMax: aim + 0.9,
-      charge: 0, charging: false, userControlled: team === this.userSide, t: 0
+      charge: 0, charging: false, userControlled: !!controller, controller, t: 0
     };
     this.ballOwner = null;
     this.positionSetPieceBall();
@@ -963,9 +1092,12 @@ export class Gameplay {
   updateSetPiece(dt) {
     const sp = this.setPiece;
     sp.t += dt;
-    if (sp.userControlled) {
-      if (this.keys.has('a') || this.keys.has('arrowleft')) sp.aim += AIM_RATE * dt;
-      if (this.keys.has('d') || this.keys.has('arrowright')) sp.aim -= AIM_RATE * dt;
+    if (sp.userControlled && sp.controller) {
+      // aim with the taking controller's own left/right keys (so in versus the
+      // correct side's angle is used, not always P1's)
+      const s = sp.controller.scheme;
+      if (this.keys.has(s.left)) sp.aim += AIM_RATE * dt;
+      if (this.keys.has(s.right)) sp.aim -= AIM_RATE * dt;
       sp.aim = THREE.MathUtils.clamp(sp.aim, sp.aimMin, sp.aimMax);
       if (sp.charging) sp.charge = Math.min(1, sp.charge + dt / 0.85);
     } else if (sp.t > 1.2) {
@@ -994,7 +1126,7 @@ export class Gameplay {
     this.ball.velocity.set(Math.sin(aim) * power, vy, Math.cos(aim) * power);
     this.ball.position.y = Math.max(this.ball.position.y, BALL.RADIUS);
     this.setPiece = null;
-    this.switchLock = 0; // snap back to normal control + camera
+    for (const h of this.humans) h.switchLock = 0; // snap back to normal control
   }
 
   kickoff() {
@@ -1005,27 +1137,38 @@ export class Gameplay {
     }
     this.homeKeeper.reset();
     this.awayKeeper.reset();
-    // both teams line up in their halves; one of YOUR forwards stands over the
-    // spot (just inside your own half, facing the way you attack)
-    this.controlled = this.userTeam.length - 2;
-    this.kickoffTaker = this.userTeam[this.controlled];
-    this.kickoffTaker.reset(-this.userSign * 1.2, 0, this.userSign > 0 ? Math.PI / 2 : -Math.PI / 2);
+    // the kicking side is the first human's team; one of their forwards stands
+    // over the spot (just inside their half, facing the way they attack)
+    const koSide = this.humans[0] ? this.humans[0].side : 'HOME';
+    const koSign = ATTACK_SIGN[koSide];
+    const koTeam = this.teamArr(koSide);
+    const takerIdx = koTeam.length - 2;
+    this.kickoffTaker = koTeam[takerIdx];
+    this.kickoffTaker.reset(-koSign * 1.2, 0, koSign > 0 ? Math.PI / 2 : -Math.PI / 2);
     this.ball.position.set(0, BALL.RADIUS, 0);
     this.ball.velocity.set(0, 0, 0);
     this.ball.angularVelocity.set(0, 0, 0);
     this.ball.syncMesh();
     this.setOwner(null); // dead until the brief kickoff pause ends
     this.kickoffT = 1.2;
-    this.passTarget = null;
-    this.passTimer = 0;
-    this.switchLock = 0;
-    this.passCharging = false;
-    this.shotCharging = false;
-    this.passCharge = 0;
-    this.shotCharge = 0;
+    // reset each controller and seat them on distinct players (the kicking
+    // side's first human takes the spot-kicker)
+    for (const h of this.humans) {
+      h.passTarget = null; h.passTimer = 0; h.switchLock = 0;
+      h.passCharging = false; h.shotCharging = false; h.passCharge = 0; h.shotCharge = 0;
+      h.controlled = h.side === koSide ? takerIdx : h.team.length - 1;
+    }
+    for (const side of ['HOME', 'AWAY']) {
+      const used = new Set();
+      for (const h of this.humans.filter((x) => x.side === side)) {
+        let idx = h.controlled;
+        while (used.has(idx)) idx = (idx + 1) % h.team.length;
+        h.controlled = idx; used.add(idx);
+      }
+    }
     this.kickCooldown = 0.3;
     this.celebrateT = 0;
-    this.lastTouchTeam = this.userSide;
+    this.lastTouchTeam = koSide;
     this.shotCam = 0;
     this.hud.hideGoal();
   }
@@ -1054,10 +1197,10 @@ export class Gameplay {
     this.hud.setTeams(this.teamId.HOME, this.teamId.AWAY);
   }
 
-  // Called from the menu's KICK OFF: pick the human's side and teams, enable
-  // input and start a fresh kickoff.
-  startMatch(side = 'HOME', homeNation = null, awayNation = null) {
-    this.applyUserSide(side);
+  // Called from the menu flow: set up the human controllers (1 or 2), apply the
+  // picked teams, enable input and start a fresh kickoff.
+  startMatch(humanConfigs = null, homeNation = null, awayNation = null) {
+    this.setupHumans(humanConfigs);
     this.applyTeams(homeNation, awayNation);
     this.active = true;
     this.kickoff();

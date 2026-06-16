@@ -48,13 +48,20 @@ export class HUD {
     this.homeTeamEl = home;
     this.awayTeamEl = away;
 
-    // ---- controlled-player name tag -------------------------------------
+    // ---- controlled-player name tags (P1 left, P2 right in couch play) ---
     this.playerTag = el('div', 'playertag', root, '');
+    this.playerTag2 = el('div', 'playertag p2', root, '');
+    this.playerTag2.style.display = 'none';
 
-    // ---- charge bar (power for pass / shot, shown under the player) ------
-    this.chargeBar = el('div', 'chargebar', root);
-    this.chargeFill = el('div', 'chargefill', this.chargeBar);
-    this.chargeBar.style.display = 'none';
+    // ---- charge bars (one per controller, shown under the player) --------
+    this.chargeBars = [];
+    this.chargeFills = [];
+    for (let i = 0; i < 2; i++) {
+      const bar = el('div', 'chargebar', root);
+      this.chargeFills.push(el('div', 'chargefill', bar));
+      bar.style.display = 'none';
+      this.chargeBars.push(bar);
+    }
 
     // ---- goal banner -----------------------------------------------------
     this.goalBanner = el('div', 'goal-banner hidden', root, 'GOAL!');
@@ -78,16 +85,32 @@ export class HUD {
     if (this.playerTag.textContent !== tag) this.playerTag.textContent = tag;
   }
 
-  setCharge(active, value, kind, x, y) {
-    if (!active) {
-      if (this.chargeBar.style.display !== 'none') this.chargeBar.style.display = 'none';
+  // P2's name tag (bottom-right), with their ring colour as an accent; pass a
+  // falsy team to hide it (solo play).
+  setPlayer2(team, name, label, color) {
+    if (!team) {
+      if (this.playerTag2.style.display !== 'none') this.playerTag2.style.display = 'none';
       return;
     }
-    this.chargeBar.style.display = 'block';
-    this.chargeBar.style.left = `${x}px`;
-    this.chargeBar.style.top = `${y}px`;
-    this.chargeFill.style.width = `${Math.round(value * 100)}%`;
-    this.chargeFill.style.background = kind === 'shot' ? '#ff5b3b' : '#46d39a';
+    this.playerTag2.style.display = 'block';
+    const tag = `${team} · ${name}${label ? ' · ' + label : ''}`;
+    if (this.playerTag2.textContent !== tag) this.playerTag2.textContent = tag;
+    if (color != null) this.playerTag2.style.borderColor = '#' + color.toString(16).padStart(6, '0');
+  }
+
+  setCharge(index, active, value, kind, x, y) {
+    const bar = this.chargeBars[index];
+    const fill = this.chargeFills[index];
+    if (!bar) return;
+    if (!active) {
+      if (bar.style.display !== 'none') bar.style.display = 'none';
+      return;
+    }
+    bar.style.display = 'block';
+    bar.style.left = `${x}px`;
+    bar.style.top = `${y}px`;
+    fill.style.width = `${Math.round(value * 100)}%`;
+    fill.style.background = kind === 'shot' ? '#ff5b3b' : '#46d39a';
   }
 
   showGoal(team) {
