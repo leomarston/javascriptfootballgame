@@ -4,6 +4,7 @@
  */
 
 import { TEAMS } from '../config.js';
+import { makeFlag } from '../game/nations.js';
 
 const el = (tag, cls, parent, html) => {
   const e = document.createElement(tag);
@@ -36,7 +37,7 @@ export class HUD {
     const board = el('div', 'scoreboard', root);
     const home = el('div', 'team home', board);
     home.style.setProperty('--c', '#' + TEAMS.HOME.primary.toString(16).padStart(6, '0'));
-    el('span', 'badge', home);
+    this.homeFlag = el('span', 'sb-flag', home);
     this.homeName = el('span', 'tname', home, TEAMS.HOME.short);
     this.homeScore = el('span', 'tscore', board, '0');
     this.clockEl = el('span', 'clock', board, "0'");
@@ -44,7 +45,7 @@ export class HUD {
     const away = el('div', 'team away', board);
     away.style.setProperty('--c', '#' + TEAMS.AWAY.primary.toString(16).padStart(6, '0'));
     this.awayName = el('span', 'tname', away, TEAMS.AWAY.short);
-    el('span', 'badge', away);
+    this.awayFlag = el('span', 'sb-flag', away);
     this.homeTeamEl = home;
     this.awayTeamEl = away;
 
@@ -72,12 +73,14 @@ export class HUD {
     this.awayScore.textContent = a;
   }
 
-  // Point the scoreboard at the chosen teams (code + badge colour).
+  // Point the scoreboard at the chosen teams (code + colour + real flag).
   setTeams(home, away) {
     this.homeName.textContent = home.short;
     this.awayName.textContent = away.short;
     this.homeTeamEl.style.setProperty('--c', '#' + home.primary.toString(16).padStart(6, '0'));
     this.awayTeamEl.style.setProperty('--c', '#' + away.primary.toString(16).padStart(6, '0'));
+    if (home.code || home.id) this.homeFlag.replaceChildren(makeFlag(home, 'sb'));
+    if (away.code || away.id) this.awayFlag.replaceChildren(makeFlag(away, 'sb'));
   }
 
   setPlayer(team, name, label) {

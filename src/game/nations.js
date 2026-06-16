@@ -26,18 +26,44 @@ export function flagSVG(id, cls = '') {
   return `<svg class="flag ${cls}" viewBox="0 0 60 40" preserveAspectRatio="xMidYMid slice">${FLAGS[id] || ''}</svg>`;
 }
 
+// Real country flags off a public-domain flag CDN (flagcdn.com). `code` is the
+// ISO 3166-1 alpha-2 (or gb-eng for England).
+export function flagURL(code) {
+  return `https://flagcdn.com/${code}.svg`;
+}
+
+// A real flag <img> with the simple drawn flag as an offline/blocked fallback.
+// `nation` needs { code, id }.
+export function makeFlag(nation, cls = '') {
+  const img = document.createElement('img');
+  img.className = 'flag-img' + (cls ? ' ' + cls : '');
+  img.alt = nation.name || '';
+  img.decoding = 'async';
+  if (nation.code) img.src = flagURL(nation.code);
+  img.onerror = () => {
+    img.onerror = null;
+    const tmp = document.createElement('div');
+    tmp.innerHTML = flagSVG(nation.id, cls);
+    const svg = tmp.firstElementChild;
+    if (svg) img.replaceWith(svg);
+    else img.style.display = 'none';
+  };
+  if (!nation.code) img.onerror();
+  return img;
+}
+
 // The current top-10 (cosmetic ratings; kit colours drive the in-match teams).
 export const NATIONS = [
-  { id: 'ARG', name: 'Argentina', confed: 'CONMEBOL', stars: 5.0, fw: 90, mf: 86, df: 84, colors: { shirt: 0x73b5e6, shorts: 0x12161c, socks: 0xffffff } },
-  { id: 'FRA', name: 'France', confed: 'UEFA', stars: 5.0, fw: 89, mf: 88, df: 87, colors: { shirt: 0x1d3a8a, shorts: 0xf2f3f5, socks: 0xc8102e } },
-  { id: 'ESP', name: 'Spain', confed: 'UEFA', stars: 4.5, fw: 85, mf: 89, df: 85, colors: { shirt: 0xc60b1e, shorts: 0x10245e, socks: 0xc60b1e } },
-  { id: 'ENG', name: 'England', confed: 'UEFA', stars: 4.5, fw: 87, mf: 86, df: 85, colors: { shirt: 0xf3f4f6, shorts: 0x1b2a52, socks: 0xf3f4f6 } },
-  { id: 'BRA', name: 'Brazil', confed: 'CONMEBOL', stars: 4.5, fw: 88, mf: 85, df: 83, colors: { shirt: 0xffd400, shorts: 0x1e3fae, socks: 0xffffff } },
-  { id: 'POR', name: 'Portugal', confed: 'UEFA', stars: 4.5, fw: 87, mf: 85, df: 82, colors: { shirt: 0x8a1538, shorts: 0x0a3d2e, socks: 0x8a1538 } },
-  { id: 'NED', name: 'Netherlands', confed: 'UEFA', stars: 4.0, fw: 84, mf: 84, df: 85, colors: { shirt: 0xee7711, shorts: 0x12161c, socks: 0xee7711 } },
-  { id: 'BEL', name: 'Belgium', confed: 'UEFA', stars: 4.0, fw: 85, mf: 84, df: 80, colors: { shirt: 0xb81d2c, shorts: 0x12161c, socks: 0xb81d2c } },
-  { id: 'ITA', name: 'Italy', confed: 'UEFA', stars: 4.0, fw: 80, mf: 84, df: 87, colors: { shirt: 0x1a5fb4, shorts: 0xf2f3f5, socks: 0x1a5fb4 } },
-  { id: 'GER', name: 'Germany', confed: 'UEFA', stars: 4.5, fw: 84, mf: 87, df: 83, colors: { shirt: 0xf3f4f6, shorts: 0x12161c, socks: 0xf3f4f6 } }
+  { id: 'ARG', code: 'ar', name: 'Argentina', confed: 'CONMEBOL', stars: 5.0, fw: 90, mf: 86, df: 84, colors: { shirt: 0x73b5e6, shorts: 0x12161c, socks: 0xffffff } },
+  { id: 'FRA', code: 'fr', name: 'France', confed: 'UEFA', stars: 5.0, fw: 89, mf: 88, df: 87, colors: { shirt: 0x1d3a8a, shorts: 0xf2f3f5, socks: 0xc8102e } },
+  { id: 'ESP', code: 'es', name: 'Spain', confed: 'UEFA', stars: 4.5, fw: 85, mf: 89, df: 85, colors: { shirt: 0xc60b1e, shorts: 0x10245e, socks: 0xc60b1e } },
+  { id: 'ENG', code: 'gb-eng', name: 'England', confed: 'UEFA', stars: 4.5, fw: 87, mf: 86, df: 85, colors: { shirt: 0xf3f4f6, shorts: 0x1b2a52, socks: 0xf3f4f6 } },
+  { id: 'BRA', code: 'br', name: 'Brazil', confed: 'CONMEBOL', stars: 4.5, fw: 88, mf: 85, df: 83, colors: { shirt: 0xffd400, shorts: 0x1e3fae, socks: 0xffffff } },
+  { id: 'POR', code: 'pt', name: 'Portugal', confed: 'UEFA', stars: 4.5, fw: 87, mf: 85, df: 82, colors: { shirt: 0x8a1538, shorts: 0x0a3d2e, socks: 0x8a1538 } },
+  { id: 'NED', code: 'nl', name: 'Netherlands', confed: 'UEFA', stars: 4.0, fw: 84, mf: 84, df: 85, colors: { shirt: 0xee7711, shorts: 0x12161c, socks: 0xee7711 } },
+  { id: 'BEL', code: 'be', name: 'Belgium', confed: 'UEFA', stars: 4.0, fw: 85, mf: 84, df: 80, colors: { shirt: 0xb81d2c, shorts: 0x12161c, socks: 0xb81d2c } },
+  { id: 'ITA', code: 'it', name: 'Italy', confed: 'UEFA', stars: 4.0, fw: 80, mf: 84, df: 87, colors: { shirt: 0x1a5fb4, shorts: 0xf2f3f5, socks: 0x1a5fb4 } },
+  { id: 'GER', code: 'de', name: 'Germany', confed: 'UEFA', stars: 4.5, fw: 84, mf: 87, df: 83, colors: { shirt: 0xf3f4f6, shorts: 0x12161c, socks: 0xf3f4f6 } }
 ];
 
 // 'ARG' -> 'ARG' code shown on the scoreboard; reuse the id as the short code.

@@ -38,12 +38,11 @@ body {
   z-index: 10;
 }
 
-/* ---------- scoreboard ---------- */
+/* ---------- scoreboard (top-right) ---------- */
 .scoreboard {
   position: absolute;
   top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 18px;
   display: flex;
   align-items: stretch;
   gap: 2px;
@@ -62,18 +61,26 @@ body {
   align-items: center;
   gap: 8px;
   padding: 10px 14px;
+  border-bottom: 3px solid var(--c);
 }
 
 .scoreboard .team.home {
   flex-direction: row;
 }
 
-.scoreboard .badge {
-  width: 14px;
-  height: 22px;
+.sb-flag {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.sb-flag .flag-img,
+.sb-flag .flag {
+  width: 27px;
+  height: 18px;
   border-radius: 3px;
-  background: var(--c);
-  box-shadow: 0 0 10px var(--c);
+  object-fit: cover;
+  display: block;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.25);
 }
 
 .scoreboard .tname {
@@ -727,13 +734,16 @@ body {
   letter-spacing: 0.04em;
 }
 
-.flag {
+.flag,
+.flag-img {
   display: block;
   border-radius: 2px;
+  object-fit: cover;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
 }
 
-.flag.sm { width: 26px; height: 17px; }
+.flag.sm,
+.flag-img.sm { width: 26px; height: 17px; }
 
 .ts-name {
   margin-top: clamp(8px, 1.4vh, 16px);
@@ -755,10 +765,12 @@ body {
   line-height: 0;
 }
 
-.ts-flag .flag {
+.ts-flag .flag,
+.ts-flag .flag-img {
   width: 100%;
   height: auto;
   aspect-ratio: 3 / 2;
+  object-fit: cover;
   border: 2px solid rgba(20, 24, 44, 0.25);
   border-radius: 6px;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.3);

@@ -1201,11 +1201,11 @@ export class Gameplay {
   // goal, so scoring is unaffected — only colours and labels change.
   applyTeams(homeNation, awayNation) {
     if (homeNation) {
-      this.teamId.HOME = { short: homeNation.id, name: homeNation.name, primary: homeNation.colors.shirt };
+      this.teamId.HOME = { short: homeNation.id, id: homeNation.id, code: homeNation.code, name: homeNation.name, primary: homeNation.colors.shirt };
       for (const p of this.home) p.setKitColors(homeNation.colors);
     }
     if (awayNation) {
-      this.teamId.AWAY = { short: awayNation.id, name: awayNation.name, primary: awayNation.colors.shirt };
+      this.teamId.AWAY = { short: awayNation.id, id: awayNation.id, code: awayNation.code, name: awayNation.name, primary: awayNation.colors.shirt };
       for (const p of this.away) p.setKitColors(awayNation.colors);
     }
     this.hud.setTeams(this.teamId.HOME, this.teamId.AWAY);

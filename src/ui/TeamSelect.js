@@ -10,7 +10,7 @@
  * (and out to the side-select). Y randomises the focused team.
  */
 
-import { NATIONS, flagSVG } from '../game/nations.js';
+import { NATIONS, makeFlag } from '../game/nations.js';
 
 const el = (tag, cls, parent, html) => {
   const e = document.createElement(tag);
@@ -107,10 +107,10 @@ export class TeamSelect {
   }
 
   fillPanel(p, n) {
-    p.__league.__flag.innerHTML = flagSVG(n.id, 'sm');
+    p.__league.__flag.replaceChildren(makeFlag(n, 'sm'));
     p.__league.__name.textContent = n.confed;
     p.__name.textContent = n.name;
-    p.__flag.innerHTML = flagSVG(n.id, 'lg');
+    p.__flag.replaceChildren(makeFlag(n, 'lg'));
     p.__stars.innerHTML = this.stars(n.stars);
     for (const k of ['FW', 'MF', 'DF']) {
       const row = p.__stats['__' + k];
