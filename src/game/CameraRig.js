@@ -79,6 +79,18 @@ export class CameraRig {
     this.camera.lookAt(this._curTarget);
   }
 
+  // A slow, gently swaying low broadcast angle over the centre of the pitch —
+  // the cinematic backdrop behind the main menu.
+  menu(dt, time) {
+    const sway = Math.sin(time * 0.16);
+    this._desiredPos.set(sway * 11, 7.5, 31);
+    this._desiredTarget.set(sway * 4, 1.5, -2);
+    const k = 1 - Math.pow(0.01, dt);
+    this.camera.position.lerp(this._desiredPos, k);
+    this._curTarget.lerp(this._desiredTarget, k);
+    this.camera.lookAt(this._curTarget);
+  }
+
   // A behind-the-taker view looking out along the aim, used for set-pieces.
   behind(dt, pos, dx, dz) {
     this._desiredPos.set(pos.x - dx * 7, 4.6, pos.z - dz * 7);

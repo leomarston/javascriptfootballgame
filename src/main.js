@@ -19,6 +19,7 @@ import { teamSheet } from './game/formations.js';
 import { CameraRig } from './game/CameraRig.js';
 import { Gameplay } from './game/Gameplay.js';
 import { HUD } from './ui/HUD.js';
+import { MainMenu } from './ui/MainMenu.js';
 
 class App {
   constructor() {
@@ -128,11 +129,24 @@ class App {
     this.applyNight(); // night is the default look
     addEventListener('resize', () => this.onResize());
 
-    this.hud.setLoading(1, 'Kickoff!');
+    this.hud.setLoading(1, 'Ready');
     this.hud.hideLoading();
-    this.hud.startClock();
+
+    // The front-end menu opens over the lit pitch; KICK OFF begins the match.
+    this.inMenu = true;
+    this.menuTime = 0;
+    this.hud.root.style.display = 'none';
+    this.menu = new MainMenu(() => this.beginMatch());
 
     this.renderer.setAnimationLoop(() => this.frame());
+  }
+
+  beginMatch() {
+    if (!this.inMenu) return;
+    this.inMenu = false;
+    this.hud.root.style.display = '';
+    this.gameplay.startMatch();
+    this.hud.startClock();
   }
 
   applyNight() {
@@ -164,6 +178,16 @@ class App {
   frame() {
     this.timer.update();
     const dt = Math.min(0.05, this.timer.getDelta());
+
+    if (this.inMenu) {
+      this.menuTime += dt;
+      this.gameplay.menuIdle(dt); // players idle behind the menu
+      this.rig.menu(dt, this.menuTime);
+      this.stadium.update(dt);
+      this.postfx.render(this.rig.camera);
+      return;
+    }
+
     this.gameplay.update(dt);
     const ctrl = this.gameplay.activePlayer();
     const sp = this.gameplay.setPieceActive();

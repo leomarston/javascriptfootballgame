@@ -67,6 +67,7 @@ export class Gameplay {
     this.physics = new Physics();
 
     this.score = { HOME: 0, AWAY: 0 };
+    this.active = false; // match input/clock are off until the menu kicks off
     this.keys = new Set();
     this.controlled = 0;
     this.ballOwner = null;
@@ -106,6 +107,7 @@ export class Gameplay {
 
   bind() {
     addEventListener('keydown', (e) => {
+      if (!this.active) return; // the menu owns input until kickoff
       const k = e.key.toLowerCase();
       this.keys.add(k);
       if (e.repeat) return;
@@ -114,6 +116,7 @@ export class Gameplay {
       else this.actionDown(k);
     });
     addEventListener('keyup', (e) => {
+      if (!this.active) return;
       const k = e.key.toLowerCase();
       this.keys.delete(k);
       this.actionUp(k);
@@ -1002,6 +1005,21 @@ export class Gameplay {
     this.lastTouchTeam = 'HOME';
     this.shotCam = 0;
     this.hud.hideGoal();
+  }
+
+  // Keeps the scene alive behind the main menu: players idle in their kickoff
+  // lineup, keepers settle, the ball waits on the spot — no clock, no input.
+  menuIdle(dt) {
+    for (const a of this.field) a.update(dt, null, false);
+    for (const k of this.keepers) k.update(dt, this.ball, 'own');
+    this.ball.position.set(0, BALL.RADIUS, 0);
+    this.ball.syncMesh();
+  }
+
+  // Called from the menu's KICK OFF: enable input and start a fresh kickoff.
+  startMatch() {
+    this.active = true;
+    this.kickoff();
   }
 
   onGoal(scorer) {
