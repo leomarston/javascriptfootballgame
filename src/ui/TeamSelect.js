@@ -11,6 +11,7 @@
  */
 
 import { NATIONS, makeFlag } from '../game/nations.js';
+import { facetSVG } from './lowpoly.js';
 
 const el = (tag, cls, parent, html) => {
   const e = document.createElement(tag);
@@ -39,7 +40,7 @@ export class TeamSelect {
   build() {
     const root = el('div', 'ts focus-home', document.body);
     this.root = root;
-    el('div', 'ts-bg', root);
+    el('div', 'ts-bg', root).innerHTML = facetSVG(0x16327a, 0x0c1a44, { seed: 23 });
 
     // headers: HOME · EXHIBITION · AWAY
     const heads = el('div', 'ts-headers', root);

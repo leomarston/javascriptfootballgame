@@ -9,6 +9,8 @@
  *   Enter = confirm (start team-select), Esc/Backspace = back to the menu.
  */
 
+import { facetSVG } from './lowpoly.js';
+
 const el = (tag, cls, parent, html) => {
   const e = document.createElement(tag);
   if (cls) e.className = cls;
@@ -42,7 +44,7 @@ export class SideSelect {
   build() {
     const root = el('div', 'ss', document.body);
     this.root = root;
-    el('div', 'ss-bg', root);
+    el('div', 'ss-bg', root).innerHTML = facetSVG(0x241a52, 0x120d2c, { seed: 11 });
     root.insertAdjacentHTML('beforeend', this.ribbons());
 
     const board = el('div', 'ss-board', root);

@@ -8,6 +8,7 @@
  */
 
 import { TEAMS } from '../config.js';
+import { facetSVG } from './lowpoly.js';
 
 const el = (tag, cls, parent, html) => {
   const e = document.createElement(tag);
@@ -38,8 +39,8 @@ export class MainMenu {
     const root = el('div', 'menu', document.body);
     this.root = root;
 
-    // background dressing: gradient + faint angular streaks + section watermark
-    el('div', 'menu-bg', root);
+    // background dressing: low-poly facets + faint angular streaks + watermark
+    el('div', 'menu-bg', root).innerHTML = facetSVG(0x171f5a, 0x3a2272, { seed: 5 });
     el('div', 'menu-streaks', root);
     this.watermark = el('div', 'menu-watermark', root, SECTIONS[0].label);
 
