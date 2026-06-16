@@ -410,48 +410,60 @@ export class Gameplay {
     }
   }
 
-  // Decide which player each human on a side controls — guaranteeing two co-op
-  // controllers never share one player. The ball carrier goes to the controller
-  // already on it (or nearest); a pass-and-go receiver is honoured; everyone
-  // else takes their nearest free team-mate (held ≥1s so it doesn't flicker).
+  // Decide which player each human on a side controls. With one controller
+  // (solo / versus) this is the classic auto-switch. With two (co-op) it follows
+  // eFootball: the human "in the action" controls the ball / presser, the other
+  // keeps their own player (continuity) — so a pass hands the ball to whichever
+  // team-mate's pad is nearer, never always P1, and they never share a player.
   assignTeamControl(side, hs) {
     const team = this.teamArr(side);
     const owner = this.ballOwner;
     const ownerOnTeam = owner && owner.team === side && team.includes(owner);
-    const taken = new Set();
-    const assigned = new Set();
 
-    // pass-and-go: lock onto the receiver while the pass is live
-    for (const h of hs) {
-      if (h.passTarget && h.passTimer > 0) {
-        const idx = team.indexOf(h.passTarget);
-        if (idx >= 0 && !taken.has(idx)) { h.controlled = idx; taken.add(idx); assigned.add(h); }
+    // ---- single controller (solo / versus): classic behaviour --------------
+    if (hs.length === 1) {
+      const h = hs[0];
+      if (ownerOnTeam) { h.controlled = team.indexOf(owner); return; }
+      if (h.passTarget && h.passTimer > 0) { h.controlled = team.indexOf(h.passTarget); return; }
+      if (h.switchLock <= 0) {
+        const n = this.nearestIndex(team, this.ball.position);
+        if (n !== h.controlled) { h.controlled = n; h.switchLock = 1.0; }
       }
+      return;
     }
 
-    // the carrier goes to whoever's already on it, else the nearest controller
-    if (ownerOnTeam) {
-      const ownerIdx = team.indexOf(owner);
-      if (!taken.has(ownerIdx)) {
-        const cand = hs.filter((h) => !assigned.has(h));
-        let carrier = cand.find((h) => h.controlled === ownerIdx);
-        if (!carrier && cand.length) {
-          carrier = cand.slice().sort((a, b) =>
-            this.horiz(a.player().position, this.ball.position) - this.horiz(b.player().position, this.ball.position))[0];
-        }
-        if (carrier) { carrier.controlled = ownerIdx; taken.add(ownerIdx); assigned.add(carrier); }
-      }
-    }
+    // ---- co-op: two controllers on one side --------------------------------
+    // Our own ball in flight (e.g. a pass): nobody chases it — hold shape, so the
+    // receiver is collected and taken over by whoever's nearest, not the passer.
+    if (!owner && this.lastTouchTeam === side) { this.coopDistinct(hs, team); return; }
 
-    // remaining controllers: nearest free team-mate, respecting the switch lock
-    for (const h of hs) {
-      if (assigned.has(h)) continue;
-      if (h.switchLock > 0 && !taken.has(h.controlled)) { taken.add(h.controlled); continue; }
-      const idx = this.nearestIndexExcluding(team, this.ball.position, taken);
-      if (idx < 0) { taken.add(h.controlled); continue; }
-      if (idx !== h.controlled) { h.controlled = idx; h.switchLock = 1.0; }
-      taken.add(h.controlled);
+    let focusIdx;
+    let respectLock;
+    if (ownerOnTeam) { focusIdx = team.indexOf(owner); respectLock = false; } // follow the ball
+    else { focusIdx = this.nearestIndex(team, this.ball.position); respectLock = true; } // press the ball
+
+    // the human "in the action" is whoever already controls the focus player,
+    // else whoever's current player is nearest the ball
+    let focus = hs.find((h) => h.controlled === focusIdx);
+    if (!focus) {
+      focus = hs.slice().sort((a, b) =>
+        this.horiz(a.player().position, this.ball.position) - this.horiz(b.player().position, this.ball.position))[0];
     }
+    if (focus.controlled !== focusIdx && (!respectLock || focus.switchLock <= 0)) {
+      focus.controlled = focusIdx;
+      focus.switchLock = 1.0;
+    }
+    this.coopDistinct(hs, team, focus);
+  }
+
+  // Two co-op controllers must hold different players: if they collide, the
+  // non-"keep" controller steps to the nearest free team-mate to their position.
+  coopDistinct(hs, team, keep = null) {
+    if (hs.length < 2 || hs[0].controlled !== hs[1].controlled) return;
+    const collide = hs[0].controlled;
+    const mover = keep ? (keep === hs[0] ? hs[1] : hs[0]) : hs[1];
+    const idx = this.nearestIndexExcluding(team, mover.player().position, new Set([collide]));
+    if (idx >= 0) mover.controlled = idx;
   }
 
   // --- AI -----------------------------------------------------------------
@@ -914,10 +926,12 @@ export class Gameplay {
   }
 
   // Switch the passing controller's control to the receiver while the pass is
-  // in flight (so you follow your pass). With no controller it just records the
-  // intended receiver (used by AI passes is handled separately).
+  // in flight (so you follow your pass) — but only when that controller is the
+  // sole human on their side. In co-op the passer does NOT follow; the receiver
+  // is taken over by whichever team-mate's pad is nearest (handled in control).
   handOverTo(mate, h = null) {
     if (!h) return;
+    if (this.humans.filter((x) => x.side === h.side).length > 1) return; // co-op
     h.passTarget = mate;
     h.passTimer = 2.0;
     h.controlled = h.team.indexOf(mate);
