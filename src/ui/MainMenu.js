@@ -72,11 +72,6 @@ export class MainMenu {
     this.localCard = this.card(cards, 'card-local is-active', 'LOCAL MATCH', 'Kick off a quick match against the COM.', true);
     this.card(cards, 'card-versus', 'VERSUS', 'Face off against another player on this device.', false);
 
-    // ---- controller hints ------------------------------------------------
-    const hints = el('footer', 'menu-hints', root);
-    el('span', 'hint', hints, '<i class="glyph cross">✕</i> Select');
-    el('span', 'hint', hints, '<i class="glyph circle">○</i> Back');
-
     requestAnimationFrame(() => root.classList.add('show'));
   }
 

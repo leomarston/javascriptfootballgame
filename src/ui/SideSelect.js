@@ -56,12 +56,6 @@ export class SideSelect {
     this.tok2 = this.token('p2', 'P2');
     this.tok2.addEventListener('click', () => this.cycleP2(1));
 
-    const hints = el('div', 'ss-hints', root);
-    this.hint(hints, 'cross', '✕', 'Confirm', () => this.confirm());
-    this.hint(hints, 'circle', '○', 'Back', () => this.cancel());
-    el('span', 'ss-hint', hints).innerHTML = '<i class="glyph pill">P1</i><span class="ss-hint-label">A / D</span>';
-    el('span', 'ss-hint', hints).innerHTML = '<i class="glyph pill">P2</i><span class="ss-hint-label">← / →</span>';
-
     this.place();
     requestAnimationFrame(() => root.classList.add('show'));
   }
@@ -82,14 +76,6 @@ export class SideSelect {
     el('div', 'pad active', t, PAD_SVG);
     t.__cap = el('div', 'ss-token-cap', t, '');
     return t;
-  }
-
-  hint(parent, glyphCls, sym, label, fn) {
-    const h = el('span', 'ss-hint' + (fn ? ' live' : ''), parent);
-    el('i', 'glyph ' + glyphCls, h, sym);
-    el('span', 'ss-hint-label', h, label);
-    if (fn) h.addEventListener('click', fn);
-    return h;
   }
 
   ribbons() {

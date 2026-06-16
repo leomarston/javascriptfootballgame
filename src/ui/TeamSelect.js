@@ -52,13 +52,6 @@ export class TeamSelect {
     this.center = this.centerColumn(main);
     this.awayPanel = this.panel(main, 'away');
 
-    // controller hints
-    const hints = el('div', 'ts-hints', root);
-    this.hint(hints, 'a', 'A', 'Select', () => this.confirm());
-    this.hint(hints, 'b', 'B', 'Back', () => this.back());
-    this.hint(hints, 'y', 'Y', 'Random', () => this.random());
-    this.hint(hints, 'x', 'X', 'Match Settings', () => this.cycleSettings());
-
     this.refresh();
     requestAnimationFrame(() => root.classList.add('show'));
   }
@@ -104,14 +97,6 @@ export class TeamSelect {
     this.diffEl = el('div', 'ts-setting', s, 'Difficulty: <b>Superstar</b>');
     el('div', 'ts-setting', s, 'Form: <b>Random</b>');
     return c;
-  }
-
-  hint(parent, btnCls, letter, label, fn) {
-    const h = el('span', 'ts-hint', parent);
-    el('i', 'ts-btn ' + btnCls, h, letter);
-    el('span', 'ts-hint-label', h, label);
-    h.addEventListener('click', fn);
-    return h;
   }
 
   // --- state → DOM ---
