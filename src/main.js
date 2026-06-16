@@ -20,6 +20,7 @@ import { CameraRig } from './game/CameraRig.js';
 import { Gameplay } from './game/Gameplay.js';
 import { HUD } from './ui/HUD.js';
 import { MainMenu } from './ui/MainMenu.js';
+import { SideSelect } from './ui/SideSelect.js';
 
 class App {
   constructor() {
@@ -132,20 +133,34 @@ class App {
     this.hud.setLoading(1, 'Ready');
     this.hud.hideLoading();
 
-    // The front-end menu opens over the lit pitch; KICK OFF begins the match.
+    // The front-end menu opens over the lit pitch; KICK OFF leads to the
+    // side-select screen, which begins the match on the chosen side.
     this.inMenu = true;
     this.menuTime = 0;
     this.hud.root.style.display = 'none';
-    this.menu = new MainMenu(() => this.beginMatch());
+    this.openMainMenu();
 
     this.renderer.setAnimationLoop(() => this.frame());
   }
 
-  beginMatch() {
+  openMainMenu() {
+    if (this.sideSelect) { this.sideSelect.destroy(); this.sideSelect = null; }
+    this.menu = new MainMenu(() => this.openSideSelect());
+  }
+
+  openSideSelect() {
+    this.sideSelect = new SideSelect({
+      onConfirm: (side) => this.beginMatch(side),
+      onCancel: () => this.openMainMenu()
+    });
+  }
+
+  beginMatch(side) {
     if (!this.inMenu) return;
     this.inMenu = false;
+    if (this.sideSelect) { this.sideSelect.destroy(); this.sideSelect = null; }
     this.hud.root.style.display = '';
-    this.gameplay.startMatch();
+    this.gameplay.startMatch(side);
     this.hud.startClock();
   }
 
@@ -198,7 +213,7 @@ class App {
       this.rig.update(dt, this.gameplay.cameraTarget()); // follows the ball after a shot
     }
     this.selRing.position.set(ctrl.position.x, 0.04, ctrl.position.z);
-    this.hud.setPlayer(TEAMS.HOME.short, ctrl.name, ctrl.label);
+    this.hud.setPlayer(TEAMS[this.gameplay.userSide].short, ctrl.name, ctrl.label);
 
     // power bar under the player while charging a pass / shot
     const ci = this.gameplay.chargeInfo();

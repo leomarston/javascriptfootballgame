@@ -50,7 +50,6 @@ const DROP = { DF: 6, MF: 5, FW: 3 }; // metres dropped when defending
 
 const HL = FIELD.HALF_LENGTH;
 const HW = FIELD.HALF_WIDTH;
-const HOME_ATTACK_X = ATTACK_SIGN.HOME * HL; // +X goal HOME attacks
 
 export class Gameplay {
   constructor(teams, ball, cameraRig, dom, hud) {
@@ -99,8 +98,22 @@ export class Gameplay {
     this._assist = new THREE.Vector3();
     this._camTarget = { position: new THREE.Vector3(), velocity: new THREE.Vector3() };
 
+    this.applyUserSide('HOME'); // default; the side-select screen can flip this
     this.bind();
     this.kickoff();
+  }
+
+  // Which side the human plays. Everything user-relative — the player you
+  // control, where your pass/shoot/cross aim, who takes "your" set-pieces and
+  // who kicks off — keys off this, NOT a hardcoded HOME. Scoring and restarts
+  // stay physical (the +X goal is always a HOME goal), so they need no change.
+  applyUserSide(side) {
+    this.userSide = side; // 'HOME' | 'AWAY'
+    this.userTeam = side === 'HOME' ? this.home : this.away; // your outfielders
+    this.oppTeam = side === 'HOME' ? this.away : this.home;
+    this.userKeeper = side === 'HOME' ? this.homeKeeper : this.awayKeeper;
+    this.userSign = ATTACK_SIGN[side]; // +1 attacks +X, -1 attacks -X
+    this.userAttackX = this.userSign * HL; // the goal you're shooting at
   }
 
   // --- input --------------------------------------------------------------
@@ -168,10 +181,10 @@ export class Gameplay {
   // really keep asking for them.
   manualSwitch() {
     if (this.celebrateT > 0) return;
-    const order = this.home
+    const order = this.userTeam
       .map((p, i) => i)
-      .sort((a, b) => this.horiz(this.home[a].position, this.ball.position)
-        - this.horiz(this.home[b].position, this.ball.position));
+      .sort((a, b) => this.horiz(this.userTeam[a].position, this.ball.position)
+        - this.horiz(this.userTeam[b].position, this.ball.position));
     const now = Date.now() / 1000;
     let rank = now - this.lastSwitchT < 0.7 ? this.switchRank + 1 : 0;
     rank = THREE.MathUtils.clamp(rank, 0, order.length - 1);
@@ -185,7 +198,7 @@ export class Gameplay {
   }
 
   controlledPlayer() {
-    return this.home[this.controlled];
+    return this.userTeam[this.controlled];
   }
 
   // Subtly bend the player's run toward a nearby loose ball — but only while
@@ -336,12 +349,12 @@ export class Gameplay {
   resolveControl(dt) {
     this.switchLock = Math.max(0, this.switchLock - dt);
     const owner = this.ballOwner;
-    if (owner && owner.team === 'HOME' && this.home.includes(owner)) {
-      this.controlled = this.home.indexOf(owner);
+    if (owner && owner.team === this.userSide && this.userTeam.includes(owner)) {
+      this.controlled = this.userTeam.indexOf(owner);
     } else if (this.passTarget && this.passTimer > 0) {
-      this.controlled = this.home.indexOf(this.passTarget);
+      this.controlled = this.userTeam.indexOf(this.passTarget);
     } else if (this.switchLock <= 0) {
-      const n = this.nearestIndex(this.home, this.ball.position);
+      const n = this.nearestIndex(this.userTeam, this.ball.position);
       if (n !== this.controlled) {
         this.controlled = n;
         this.switchLock = 1.0;
@@ -584,8 +597,8 @@ export class Gameplay {
     this.setOwner(thrower);
     thrower.captureCooldown = 0;
     this.lastTouchTeam = team;
-    if (team === 'HOME') {
-      this.controlled = this.home.indexOf(thrower);
+    if (team === this.userSide) {
+      this.controlled = this.userTeam.indexOf(thrower);
       this.switchLock = 1.0;
     }
   }
@@ -652,7 +665,7 @@ export class Gameplay {
     let bestScore = -Infinity;
     let nearest = null;
     let nd = Infinity;
-    for (const m of this.home) {
+    for (const m of this.userTeam) {
       if (m === me) continue;
       const dx = m.position.x - me.position.x;
       const dz = m.position.z - me.position.z;
@@ -686,7 +699,7 @@ export class Gameplay {
   shoot(me, charge = 1) {
     const bx = this.ball.position.x;
     const bz = this.ball.position.z;
-    const dx = HOME_ATTACK_X - bx;
+    const dx = this.userAttackX - bx;
     const dz = 0 - bz;
     const dist = Math.hypot(dx, dz) || 1;
     const near = THREE.MathUtils.clamp((dist - 6) / 26, 0, 1); // 0 close, 1 far
@@ -756,11 +769,13 @@ export class Gameplay {
   }
 
   cross(me) {
+    const s = this.userSign;
     let mate = null;
     let bestAhead = -Infinity;
-    for (const m of this.home) {
+    for (const m of this.userTeam) {
       if (m === me) continue;
-      if (m.position.x > 25 && m.position.x > bestAhead) { bestAhead = m.position.x; mate = m; }
+      const ahead = m.position.x * s; // how far up your attacking half they are
+      if (ahead > 25 && ahead > bestAhead) { bestAhead = ahead; mate = m; }
     }
     let tx;
     let tz;
@@ -768,10 +783,12 @@ export class Gameplay {
       tx = mate.position.x;
       tz = mate.position.z;
     } else {
-      tx = HOME_ATTACK_X - 9;
+      tx = this.userAttackX - s * 9;
       tz = me.position.z > 0 ? -3.5 : 3.5;
     }
-    tx = THREE.MathUtils.clamp(tx, HOME_ATTACK_X - 16, HOME_ATTACK_X - 4);
+    const near = this.userAttackX - s * 4; // edge nearest the goal line
+    const far = this.userAttackX - s * 16; // edge of the box
+    tx = THREE.MathUtils.clamp(tx, Math.min(near, far), Math.max(near, far));
     tz = THREE.MathUtils.clamp(tz, -18, 18);
     const T = 1.15;
     const dx = tx - this.ball.position.x;
@@ -783,7 +800,7 @@ export class Gameplay {
   handOverTo(mate) {
     this.passTarget = mate;
     this.passTimer = 2.0;
-    this.controlled = this.home.indexOf(mate);
+    this.controlled = this.userTeam.indexOf(mate);
   }
 
   // --- helpers ------------------------------------------------------------
@@ -874,7 +891,7 @@ export class Gameplay {
     const aim = Math.atan2(-side, 0); // face up the pitch, away from our own goal
     this.setPiece = {
       type: 'goalkick', team, taker: keeper, aim, aimMin: aim - 1.0, aimMax: aim + 1.0,
-      charge: 0, charging: false, userControlled: team === 'HOME', t: 0
+      charge: 0, charging: false, userControlled: team === this.userSide, t: 0
     };
     this.ballOwner = null;
     this.positionSetPieceBall();
@@ -890,7 +907,7 @@ export class Gameplay {
     taker.heading = aim;
     this.setPiece = {
       type: 'corner', team, taker, aim, aimMin: aim - 0.9, aimMax: aim + 0.9,
-      charge: 0, charging: false, userControlled: team === 'HOME', t: 0
+      charge: 0, charging: false, userControlled: team === this.userSide, t: 0
     };
     this.ballOwner = null;
     this.positionSetPieceBall();
@@ -983,10 +1000,11 @@ export class Gameplay {
     }
     this.homeKeeper.reset();
     this.awayKeeper.reset();
-    // both teams line up in their halves; a HOME forward stands over the spot
-    this.controlled = this.home.length - 2;
-    this.kickoffTaker = this.home[this.controlled];
-    this.kickoffTaker.reset(-1.2, 0, Math.PI / 2);
+    // both teams line up in their halves; one of YOUR forwards stands over the
+    // spot (just inside your own half, facing the way you attack)
+    this.controlled = this.userTeam.length - 2;
+    this.kickoffTaker = this.userTeam[this.controlled];
+    this.kickoffTaker.reset(-this.userSign * 1.2, 0, this.userSign > 0 ? Math.PI / 2 : -Math.PI / 2);
     this.ball.position.set(0, BALL.RADIUS, 0);
     this.ball.velocity.set(0, 0, 0);
     this.ball.angularVelocity.set(0, 0, 0);
@@ -1002,7 +1020,7 @@ export class Gameplay {
     this.shotCharge = 0;
     this.kickCooldown = 0.3;
     this.celebrateT = 0;
-    this.lastTouchTeam = 'HOME';
+    this.lastTouchTeam = this.userSide;
     this.shotCam = 0;
     this.hud.hideGoal();
   }
@@ -1016,8 +1034,10 @@ export class Gameplay {
     this.ball.syncMesh();
   }
 
-  // Called from the menu's KICK OFF: enable input and start a fresh kickoff.
-  startMatch() {
+  // Called from the menu's KICK OFF: pick the human's side, enable input and
+  // start a fresh kickoff.
+  startMatch(side = 'HOME') {
+    this.applyUserSide(side);
     this.active = true;
     this.kickoff();
   }
