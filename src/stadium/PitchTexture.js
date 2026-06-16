@@ -79,16 +79,17 @@ export function createPitchAlbedo() {
   const light = hexToRgb(COLORS.GRASS_LIGHT);
 
   // ---- 1. mowing stripes -------------------------------------------------
-  // 21 stripes of 5 m, centred so a stripe sits symmetrically on the halfway line.
+  // 5 m stripes with a stripe EDGE on the halfway line (x = 0), so the shade
+  // flips across the halfway line instead of one shade running straight through.
   const stripeW = 5.0;
-  const minIdx = Math.floor((-GRASS_L / 2 + stripeW / 2) / stripeW) - 1;
-  const maxIdx = Math.ceil((GRASS_L / 2 + stripeW / 2) / stripeW) + 1;
+  const minIdx = Math.floor((-GRASS_L / 2) / stripeW) - 1;
+  const maxIdx = Math.ceil((GRASS_L / 2) / stripeW) + 1;
   for (let i = minIdx; i <= maxIdx; i++) {
     const isLight = ((i % 2) + 2) % 2 === 0;
     const base = isLight ? light : dark;
     const jitter = (Math.random() - 0.5) * 8;
-    const x0 = mx(i * stripeW - stripeW / 2);
-    const x1 = mx(i * stripeW + stripeW / 2);
+    const x0 = mx(i * stripeW);
+    const x1 = mx((i + 1) * stripeW);
     // vertical gradient inside each stripe for a touch of depth
     const grad = ctx.createLinearGradient(0, 0, 0, H);
     const c0 = `rgb(${base.r + jitter + 9},${base.g + jitter + 12},${base.b + jitter + 3})`;
@@ -106,8 +107,8 @@ export function createPitchAlbedo() {
   for (let j = minJ; j <= maxJ; j++) {
     const lighten = ((j % 2) + 2) % 2 === 0;
     ctx.fillStyle = lighten ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.055)';
-    const z0 = mz(j * stripeW - stripeW / 2);
-    const z1 = mz(j * stripeW + stripeW / 2);
+    const z0 = mz(j * stripeW);
+    const z1 = mz((j + 1) * stripeW);
     ctx.fillRect(0, z0, W, z1 - z0);
   }
 
