@@ -1,8 +1,7 @@
 /**
- * MainMenu.js — the front-end menu shown after the game loads, styled after a
- * console football front-end (eFootball-like): a yellow wordmark, a wallet pill,
- * a left section list, the KICK OFF cards and controller hints, all over the
- * live night pitch.
+ * MainMenu.js — the front-end menu shown after the game loads: a yellow
+ * wordmark, a left section list (KICK OFF / SETTINGS / QUIT), the KICK OFF
+ * cards and controller hints, all over the live night pitch.
  *
  * Only KICK OFF is wired up for now — selecting it (or the LOCAL MATCH card)
  * fires onStart() to begin the match. The other sections are inert.
@@ -21,8 +20,6 @@ const el = (tag, cls, parent, html) => {
 // Left-hand sections. Only KICK OFF does anything for now.
 const SECTIONS = [
   { key: 'kickoff', label: 'KICK OFF', live: true },
-  { key: 'world', label: 'eFOOTBALL WORLD', live: false },
-  { key: 'modes', label: 'MODES', live: false },
   { key: 'settings', label: 'SETTINGS', live: false },
   { key: 'quit', label: 'QUIT', live: false }
 ];
@@ -46,13 +43,9 @@ export class MainMenu {
     el('div', 'menu-streaks', root);
     this.watermark = el('div', 'menu-watermark', root, SECTIONS[0].label);
 
-    // ---- top bar: wordmark + wallet -------------------------------------
+    // ---- top bar: wordmark ----------------------------------------------
     const top = el('header', 'menu-top', root);
-    el('div', 'ef-logo', top, '<span class="ef-e">e</span>FOOTBALL');
-    const wallet = el('div', 'menu-wallet', top);
-    el('span', 'wallet-user', wallet, 'SteGa');
-    el('span', 'wallet-coin gp', wallet, '<i>G</i>123,800');
-    el('span', 'wallet-coin ec', wallet, '<i>e</i>30');
+    el('div', 'ef-logo', top, '<span class="ef-e">A</span>STRA ARENA');
 
     // ---- left section list ----------------------------------------------
     const nav = el('nav', 'menu-nav', root);

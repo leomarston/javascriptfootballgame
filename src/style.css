@@ -269,57 +269,6 @@ body {
   margin-right: 0.02em;
 }
 
-.menu-wallet {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 7px 8px 7px 18px;
-  background: linear-gradient(90deg, var(--ef-pink), #d4116a);
-  border-radius: 999px;
-  box-shadow: 0 8px 26px rgba(255, 23, 125, 0.3);
-  font-weight: 700;
-}
-
-.wallet-user {
-  font-size: clamp(13px, 1.2vw, 18px);
-  letter-spacing: 0.04em;
-  margin-right: 4px;
-}
-
-.wallet-coin {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  padding: 4px 13px 4px 4px;
-  background: rgba(8, 10, 34, 0.34);
-  border-radius: 999px;
-  font-size: clamp(12px, 1.1vw, 16px);
-  letter-spacing: 0.02em;
-}
-
-.wallet-coin i {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: clamp(18px, 1.6vw, 24px);
-  height: clamp(18px, 1.6vw, 24px);
-  border-radius: 50%;
-  font-style: normal;
-  font-weight: 800;
-  font-size: 0.82em;
-  color: #1a1c4a;
-}
-
-.wallet-coin.gp i {
-  background: radial-gradient(circle at 35% 30%, #7fd4ff, #2a8fd6);
-  color: #06283d;
-}
-
-.wallet-coin.ec i {
-  background: radial-gradient(circle at 35% 30%, #ffe572, #f4b400);
-  color: #5a3d00;
-}
-
 /* ---- left section list ---- */
 .menu-nav {
   position: absolute;
