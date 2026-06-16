@@ -700,7 +700,8 @@ export class Gameplay {
     const ce = Math.cos(e);
     const se = Math.sin(e);
     const power = THREE.MathUtils.lerp(13.5, 34.5, charge);
-    this.releaseBall(me, (ax * ce - az * se) * power, power * 0.12, (ax * se + az * ce) * power);
+    const vy = 0.5 + charge * 6.5; // strength decides how high it goes
+    this.releaseBall(me, (ax * ce - az * se) * power, vy, (ax * se + az * ce) * power);
     this.shotCam = 1.6; // watch the ball, not the shooter
   }
 
